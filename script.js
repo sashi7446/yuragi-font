@@ -79,13 +79,45 @@ function processText(text, variations) {
  * @param {string} text - 表示するテキスト
  */
 function updateOutput(text) {
-    console.log('🔄 updateOutput が呼ばれました - 新しいランダム割り当てを実行');
+    console.log('🔄 updateOutput が呼ばれました');
 
-    // 新しいテキストに対してランダムにバリエーションを割り当て
+    const oldText = currentText;
+    const newCharacters = Array.from(text);
+    const oldCharacters = Array.from(oldText);
+
+    // テキストに変更がない場合は何もしない
+    if (text === oldText) {
+        console.log('⏸️ テキスト変更なし - 処理をスキップ');
+        return;
+    }
+
+    // 新しいバリエーション配列を構築
+    const newVariations = [];
+
+    for (let i = 0; i < newCharacters.length; i++) {
+        const char = newCharacters[i];
+
+        // 改行やスペースにはバリエーションを割り当てない
+        if (char === '\n' || char === ' ') {
+            newVariations[i] = 0;
+            continue;
+        }
+
+        // 既存の位置で文字が変わっていない場合は、既存のバリエーションを保持
+        if (i < oldCharacters.length && oldCharacters[i] === char && currentVariations[i]) {
+            newVariations[i] = currentVariations[i];
+            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
+        } else {
+            // 新しい文字または変更された文字には新しいバリエーションを割り当て
+            newVariations[i] = getRandomVariation();
+            console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
+        }
+    }
+
     currentText = text;
-    currentVariations = assignRandomVariations(text);
+    currentVariations = newVariations;
 
-    console.log('✅ ランダム割り当て完了:', currentVariations);
+    console.log('✅ バリエーション更新完了:', currentVariations);
 
     // HTMLを生成して表示
     const processedHTML = processText(currentText, currentVariations);
@@ -135,6 +167,12 @@ function updateDebugDisplay() {
         }
         if (log.data.variations) {
             dataHTML += `<div class="debug-data">バリエーション: [${log.data.variations.filter(v => v !== 0).join(', ')}]</div>`;
+        }
+        if (log.data.unchanged !== undefined) {
+            dataHTML += `<div class="debug-data">変更なし: ${log.data.unchanged ? 'はい（スキップ）' : 'いいえ'}</div>`;
+        }
+        if (log.data.kept !== undefined) {
+            dataHTML += `<div class="debug-data">保持: ${log.data.kept}文字, 新規: ${log.data.newChars}文字</div>`;
         }
         if (log.data.key) {
             dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
@@ -193,14 +231,41 @@ textInput.addEventListener('compositionend', (event) => {
     console.log('✅ [compositionend] IME変換確定:', event.data);
 
     // 変換確定時に自動的にバリエーション割り当て
+    const oldText = currentText;
     const text = textInput.value;
+    const oldLength = Array.from(oldText).length;
+    const newLength = Array.from(text).length;
+
     updateOutput(text);
     debugShowVariations();
 
-    addDebugLog('✅ IME変換確定 → バリエーション割り当て実行', {
-        text: text,
-        variations: currentVariations
-    });
+    // テキストが変わっていない場合
+    if (text === oldText) {
+        addDebugLog('✅ IME変換確定', {
+            text: text,
+            unchanged: true
+        });
+    } else {
+        // テキストが変わった場合、保持と新規の統計を計算
+        let keptCount = 0;
+        const oldChars = Array.from(oldText);
+        const newChars = Array.from(text);
+
+        for (let i = 0; i < Math.min(oldChars.length, newChars.length); i++) {
+            if (oldChars[i] === newChars[i]) {
+                keptCount++;
+            }
+        }
+
+        const newCharCount = newLength - keptCount;
+
+        addDebugLog('✅ IME変換確定 → 更新完了', {
+            text: text,
+            variations: currentVariations,
+            kept: keptCount,
+            newChars: newCharCount
+        });
+    }
 });
 
 /**
@@ -210,26 +275,33 @@ textInput.addEventListener('compositionend', (event) => {
 textInput.addEventListener('keydown', (event) => {
     console.log('⌨️ [keydown] キー:', event.key, 'isComposing:', isComposing);
 
-    addDebugLog('⌨️ キー入力', {
-        key: event.key,
-        isComposing: isComposing
-    });
+    if (event.key === 'Enter') {
+        addDebugLog('⌨️ Enter入力', {
+            key: event.key,
+            isComposing: isComposing
+        });
+    }
 
     if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
         // Shift+Enterでない、かつIME変換中でない場合のみ処理
         event.preventDefault();
         console.log('🔄 [keydown Enter] テキスト更新を実行');
 
+        const oldText = currentText;
         const text = textInput.value;
+
         updateOutput(text);
 
         // デバッグ情報を表示
         debugShowVariations();
 
-        addDebugLog('🔄 Enter押下 → バリエーション割り当て実行', {
-            text: text,
-            variations: currentVariations
-        });
+        // テキストが変わっていない場合（通常、compositionendの後のEnterキーなど）
+        if (text === oldText) {
+            addDebugLog('🔄 Enter押下（変更なし・スキップ）', {
+                text: text,
+                unchanged: true
+            });
+        }
     }
 });
 
