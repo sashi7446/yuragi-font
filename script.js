@@ -55,13 +55,6 @@ function getSelectionRangeInContentEditable() {
         return { start: pos, end: pos, hasSelection: false };
     }
 
-    // デバッグ出力
-    console.log('🔍 選択範囲デバッグ:');
-    console.log('  startContainer:', range.startContainer);
-    console.log('  startOffset:', range.startOffset);
-    console.log('  endContainer:', range.endContainer);
-    console.log('  endOffset:', range.endOffset);
-
     // 開始位置を計算
     const startRange = range.cloneRange();
     startRange.selectNodeContents(outputArea);
@@ -69,8 +62,6 @@ function getSelectionRangeInContentEditable() {
     const tempDivStart = document.createElement('div');
     tempDivStart.appendChild(startRange.cloneContents());
     const startPos = tempDivStart.querySelectorAll('span[data-instance-id]').length;
-    console.log('  計算された開始位置:', startPos);
-    console.log('  tempDivStart.innerHTML:', tempDivStart.innerHTML);
 
     // 終了位置を計算
     const endRange = range.cloneRange();
@@ -79,8 +70,16 @@ function getSelectionRangeInContentEditable() {
     const tempDivEnd = document.createElement('div');
     tempDivEnd.appendChild(endRange.cloneContents());
     const endPos = tempDivEnd.querySelectorAll('span[data-instance-id]').length;
-    console.log('  計算された終了位置:', endPos);
-    console.log('  tempDivEnd.innerHTML:', tempDivEnd.innerHTML);
+
+    // デバッグ情報をデバッグ欄に表示
+    addDebugLog('🔍 選択範囲デバッグ', {
+        startOffset: range.startOffset,
+        endOffset: range.endOffset,
+        startPos: startPos,
+        endPos: endPos,
+        startHTML: tempDivStart.innerHTML,
+        endHTML: tempDivEnd.innerHTML
+    });
 
     return { start: startPos, end: endPos, hasSelection: true };
 }
