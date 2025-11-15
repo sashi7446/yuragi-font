@@ -491,10 +491,17 @@ outputArea.addEventListener('beforeinput', (event) => {
     const inputType = event.inputType;
     console.log(`⚡ [contenteditable beforeinput] ${inputType}`);
 
+    // デバッグログに記録
+    addDebugLog(`⚡ beforeinput: ${inputType}`, {
+        inputType: inputType,
+        isComposing: isComposingInEditable
+    });
+
     // IME入力・直接入力をpreventDefaultして自分で処理
     if (inputType === 'insertText' || inputType === 'insertCompositionText') {
         event.preventDefault();
         console.log('⏭️ insertText/insertCompositionText - preventDefault (compositionendで処理)');
+        addDebugLog('⏭️ preventDefault実行', { inputType: inputType });
         return;
     }
 
@@ -537,7 +544,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.28';
+    const version = 'v3.0.29';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
