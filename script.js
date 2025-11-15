@@ -565,10 +565,17 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎨 手書き風フォントシステム v3.0 - 初期化完了');
+    const version = 'v3.0.25';
+    console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
     console.log('💡 各文字インスタンスは不変（Object.freeze）です');
+
+    // バージョン番号をフッターに表示
+    const footer = document.querySelector('footer p');
+    if (footer) {
+        footer.textContent = `yuragi = trembling/variance (contenteditable prototype) - ${version}`;
+    }
 });
 
 // グローバルスコープに公開（デバッグ用）
