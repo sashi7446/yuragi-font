@@ -513,11 +513,18 @@ outputArea.addEventListener('compositionend', (event) => {
 });
 
 /**
- * beforeinput - 削除等（contenteditable）
+ * beforeinput - 削除・挿入等（contenteditable）
  */
 outputArea.addEventListener('beforeinput', (event) => {
     const inputType = event.inputType;
     console.log(`⚡ [contenteditable beforeinput] ${inputType}`);
+
+    // IME入力・直接入力をpreventDefaultして自分で処理
+    if (inputType === 'insertText' || inputType === 'insertCompositionText') {
+        event.preventDefault();
+        console.log('⏭️ insertText/insertCompositionText - preventDefault (compositionendで処理)');
+        return;
+    }
 
     // 削除系の操作
     if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
