@@ -94,6 +94,29 @@ function updateOutput(text) {
     // 新しいバリエーション配列を構築
     const newVariations = [];
 
+    // 簡易的な差分検出: 最長共通プレフィックスとサフィックスを見つける
+    let commonPrefixLength = 0;
+    while (
+        commonPrefixLength < newCharacters.length &&
+        commonPrefixLength < oldCharacters.length &&
+        newCharacters[commonPrefixLength] === oldCharacters[commonPrefixLength]
+    ) {
+        commonPrefixLength++;
+    }
+
+    let commonSuffixLength = 0;
+    while (
+        commonSuffixLength < (newCharacters.length - commonPrefixLength) &&
+        commonSuffixLength < (oldCharacters.length - commonPrefixLength) &&
+        newCharacters[newCharacters.length - 1 - commonSuffixLength] ===
+        oldCharacters[oldCharacters.length - 1 - commonSuffixLength]
+    ) {
+        commonSuffixLength++;
+    }
+
+    console.log(`📊 共通プレフィックス: ${commonPrefixLength}, 共通サフィックス: ${commonSuffixLength}`);
+
+    // バリエーションを構築
     for (let i = 0; i < newCharacters.length; i++) {
         const char = newCharacters[i];
 
@@ -103,14 +126,21 @@ function updateOutput(text) {
             continue;
         }
 
-        // 既存の位置で文字が変わっていない場合は、既存のバリエーションを保持
-        if (i < oldCharacters.length && oldCharacters[i] === char && currentVariations[i]) {
+        // プレフィックス部分（変更なし）
+        if (i < commonPrefixLength) {
             newVariations[i] = currentVariations[i];
-            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
-        } else {
-            // 新しい文字または変更された文字には新しいバリエーションを割り当て
+            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持（プレフィックス）`);
+        }
+        // サフィックス部分（変更なし）
+        else if (i >= newCharacters.length - commonSuffixLength) {
+            const oldIndex = oldCharacters.length - (newCharacters.length - i);
+            newVariations[i] = currentVariations[oldIndex];
+            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[oldIndex]}を保持（サフィックス、旧位置${oldIndex}）`);
+        }
+        // 中間部分（変更あり）
+        else {
             newVariations[i] = getRandomVariation();
-            console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
+            console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て（中間変更部分）`);
         }
     }
 
