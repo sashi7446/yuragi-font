@@ -148,6 +148,13 @@ function updateOutput(text) {
 
         const availableInstances = [...oldCharsFiltered];
 
+        // 削除検出: 古いテキストより新しいテキストの方が短い場合
+        const isDeletion = oldCharsFiltered.length > newCharacters.filter(c => c !== '\n' && c !== ' ').length;
+
+        if (isDeletion) {
+            console.log('🗑️ 削除を検出 - 後ろからマッチング戦略を使用');
+        }
+
         for (const char of newCharacters) {
             // 改行やスペースの場合
             if (char === '\n' || char === ' ') {
@@ -160,7 +167,20 @@ function updateOutput(text) {
             }
 
             // プールから同じ文字のインスタンスを探す
-            const matchIndex = availableInstances.findIndex(inst => inst.char === char);
+            // 削除の場合は後ろから、追加の場合は前から探す
+            let matchIndex = -1;
+            if (isDeletion) {
+                // 後ろから検索 (最後に見つかったインデックスを取得)
+                for (let i = availableInstances.length - 1; i >= 0; i--) {
+                    if (availableInstances[i].char === char) {
+                        matchIndex = i;
+                        break;
+                    }
+                }
+            } else {
+                // 前から検索
+                matchIndex = availableInstances.findIndex(inst => inst.char === char);
+            }
 
             if (matchIndex !== -1) {
                 // 既存のインスタンスを再利用
