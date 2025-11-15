@@ -215,61 +215,9 @@ function updateDebugDisplay() {
     }
 
     const logsHTML = debugLogs.map(log => {
-        let dataHTML = '';
-        if (log.data.text !== undefined) {
-            dataHTML += `<div class="debug-data">テキスト: "${log.data.text}"</div>`;
-        }
-        if (log.data.variations) {
-            dataHTML += `<div class="debug-data">バリエーション: [${log.data.variations.filter(v => v !== 0).join(', ')}]</div>`;
-        }
-        if (log.data.unchanged !== undefined) {
-            dataHTML += `<div class="debug-data">変更なし: ${log.data.unchanged ? 'はい（スキップ）' : 'いいえ'}</div>`;
-        }
-        if (log.data.kept !== undefined) {
-            dataHTML += `<div class="debug-data">保持: ${log.data.kept}文字, 新規: ${log.data.newChars}文字</div>`;
-        }
-        if (log.data.position !== undefined) {
-            dataHTML += `<div class="debug-data">位置: ${log.data.position}</div>`;
-        }
-        if (log.data.deleted !== undefined) {
-            // deletedは削除されたインスタンス情報（文字列）
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em;">削除: ${log.data.deleted}</div>`;
-        }
-        if (log.data.deletedCount !== undefined) {
-            dataHTML += `<div class="debug-data">削除数: ${log.data.deletedCount}個</div>`;
-        }
-        if (log.data.remaining !== undefined) {
-            // remainingは削除後に残ったインスタンス一覧
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">残存: ${log.data.remaining}</div>`;
-        }
-        if (log.data.chars !== undefined) {
-            dataHTML += `<div class="debug-data">削除文字: "${log.data.chars}"</div>`;
-        }
-        if (log.data.instances !== undefined) {
-            // instancesは挿入/更新時のインスタンス一覧
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">インスタンス: ${log.data.instances}</div>`;
-        }
-        if (log.data.reused !== undefined) {
-            dataHTML += `<div class="debug-data">再利用: ${log.data.reused}個</div>`;
-        }
-        if (log.data.created !== undefined) {
-            dataHTML += `<div class="debug-data">新規作成: ${log.data.created}個</div>`;
-        }
-        if (log.data.key) {
-            dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
-        }
-        if (log.data.isComposing !== undefined) {
-            dataHTML += `<div class="debug-data">IME変換中: ${log.data.isComposing ? 'はい' : 'いいえ'}</div>`;
-        }
-        if (log.data.cursorPos !== undefined) {
-            dataHTML += `<div class="debug-data" style="font-weight: bold; color: #e74c3c;">📍 カーソル位置: ${log.data.cursorPos}</div>`;
-        }
-        if (log.data.insertPos !== undefined) {
-            dataHTML += `<div class="debug-data" style="font-weight: bold; color: #e67e22;">📝 挿入位置: ${log.data.insertPos}</div>`;
-        }
-        if (log.data.beforeLength !== undefined) {
-            dataHTML += `<div class="debug-data">挿入前のインスタンス数: ${log.data.beforeLength}個</div>`;
-        }
+        const dataHTML = Object.entries(log.data)
+            .map(([key, value]) => `<div class="debug-data">${key}: ${JSON.stringify(value)}</div>`)
+            .join('');
 
         return `
             <div class="debug-event">
@@ -581,7 +529,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.26';
+    const version = 'v3.0.27';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
