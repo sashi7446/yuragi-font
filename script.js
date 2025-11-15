@@ -10,10 +10,6 @@ const FONT_VARIATIONS_COUNT = 6; // 利用可能なフォントバリエーシ�
 let characterInstances = [];
 let nextId = 1; // 次に割り当てるID
 
-// 前回のテキスト状態（カーソル位置検出用）
-let previousText = '';
-let previousCursorPos = 0;
-
 // DOM要素の取得
 const textInput = document.getElementById('text-input');
 const outputArea = document.getElementById('output');
@@ -244,8 +240,6 @@ function updateOutput(text) {
 
     // 5. 状態を更新
     characterInstances = newInstances;
-    previousText = text;
-    previousCursorPos = cursorPos;
 
     // 6. デバッグログ
     const instancesDebug = characterInstances
