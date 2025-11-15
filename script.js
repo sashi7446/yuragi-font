@@ -8,6 +8,10 @@ const FONT_VARIATIONS_COUNT = 6; // 利用可能なフォントバリエーシ�
 let characterInstances = [];
 let nextId = 1; // 次に割り当てるID
 
+// 前回のテキスト状態（カーソル位置検出用）
+let previousText = '';
+let previousCursorPos = 0;
+
 // DOM要素の取得
 const textInput = document.getElementById('text-input');
 const outputArea = document.getElementById('output');
@@ -71,11 +75,93 @@ function processText(instances) {
 }
 
 /**
+ * カーソル位置から削除された文字を検出
+ * @param {string} oldText - 前のテキスト
+ * @param {string} newText - 新しいテキスト
+ * @param {number} cursorPos - カーソル位置
+ * @returns {object|null} 削除情報 { position, char, instance } または null
+ */
+function detectDeletion(oldText, newText, cursorPos) {
+    // 削除でない場合
+    if (oldText.length <= newText.length) {
+        return null;
+    }
+
+    const deletedCount = oldText.length - newText.length;
+
+    // 削除位置を特定（カーソル位置から推測）
+    let deletePos = cursorPos;
+
+    // 前方一致する部分を見つける
+    let matchStart = 0;
+    while (matchStart < cursorPos && matchStart < newText.length &&
+           oldText[matchStart] === newText[matchStart]) {
+        matchStart++;
+    }
+
+    deletePos = matchStart;
+
+    // 削除された文字列を取得
+    const deletedChars = oldText.substring(deletePos, deletePos + deletedCount);
+
+    // characterInstancesから該当する文字を探す
+    const oldCharsFiltered = characterInstances.filter(inst => inst.char !== '\n' && inst.char !== ' ');
+    const oldTextFiltered = oldCharsFiltered.map(inst => inst.char).join('');
+
+    // oldTextFiltered内での位置を計算
+    let posInFiltered = 0;
+    let posInOriginal = 0;
+    while (posInOriginal < deletePos && posInFiltered < oldTextFiltered.length) {
+        if (oldText[posInOriginal] !== '\n' && oldText[posInOriginal] !== ' ') {
+            posInFiltered++;
+        }
+        posInOriginal++;
+    }
+
+    const deletedInstances = [];
+    for (let i = 0; i < deletedCount; i++) {
+        const char = deletedChars[i];
+        if (char !== '\n' && char !== ' ' && posInFiltered + i < oldCharsFiltered.length) {
+            deletedInstances.push(oldCharsFiltered[posInFiltered + i]);
+        }
+    }
+
+    return {
+        position: deletePos,
+        chars: deletedChars,
+        instances: deletedInstances
+    };
+}
+
+/**
  * 出力エリアを更新
  * @param {string} text - 表示するテキスト
  */
 function updateOutput(text) {
     console.log('🔄 updateOutput が呼ばれました');
+
+    // 削除検出
+    const cursorPos = textInput.selectionStart;
+    const deletion = detectDeletion(previousText, text, cursorPos);
+
+    if (deletion && deletion.instances.length > 0) {
+        console.log('🗑️ 削除を検出:');
+        console.log(`  位置: ${deletion.position}`);
+        console.log(`  文字: "${deletion.chars}"`);
+        deletion.instances.forEach(inst => {
+            console.log(`  削除されたインスタンス: ID=${inst.id}, char="${inst.char}", variation=${inst.variation}`);
+        });
+
+        addDebugLog('🗑️ 削除検出', {
+            position: deletion.position,
+            chars: deletion.chars,
+            instances: deletion.instances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ')
+        });
+    }
+
+    // 前回の状態を更新
+    previousText = text;
+    previousCursorPos = cursorPos;
 
     const newCharacters = Array.from(text);
     const oldText = characterInstances.map(inst => inst.char).join('');
@@ -268,6 +354,15 @@ function updateDebugDisplay() {
         }
         if (log.data.added !== undefined) {
             dataHTML += `<div class="debug-data">追加: ${log.data.added}文字</div>`;
+        }
+        if (log.data.position !== undefined) {
+            dataHTML += `<div class="debug-data">削除位置: ${log.data.position}</div>`;
+        }
+        if (log.data.chars !== undefined) {
+            dataHTML += `<div class="debug-data">削除文字: "${log.data.chars}"</div>`;
+        }
+        if (log.data.instances !== undefined) {
+            dataHTML += `<div class="debug-data">削除インスタンス: ${log.data.instances}</div>`;
         }
         if (log.data.key) {
             dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
