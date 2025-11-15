@@ -1,0 +1,202 @@
+/* Google Fontsのインポート */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400&family=Noto+Serif+JP:wght@400&family=M+PLUS+Rounded+1c:wght@400&display=swap');
+
+/* リセットと基本スタイル */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+}
+
+/* ヘッダー */
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 20px;
+}
+
+h1 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+/* 入力セクション */
+.input-section {
+    margin-bottom: 40px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+textarea {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    resize: vertical;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.hint {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #95a5a6;
+}
+
+/* 出力セクション */
+.output-section {
+    margin-bottom: 40px;
+}
+
+h2 {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.output-area {
+    min-height: 120px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #ddd;
+}
+
+.output-area.has-content {
+    border-style: solid;
+    border-color: #3498db;
+    background: white;
+}
+
+.placeholder {
+    color: #bdc3c7;
+    text-align: center;
+    font-style: italic;
+}
+
+/* デモセクション */
+.demo-section {
+    background: #ecf0f1;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+h3 {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.note {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+/* フッター */
+footer {
+    text-align: center;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+    color: #95a5a6;
+    font-size: 0.9rem;
+}
+
+/* フォントバリエーション - 各文字にランダムで適用される */
+.font-variation-1 {
+    font-family: 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+    font-weight: 400;
+}
+
+.font-variation-2 {
+    font-family: 'Noto Serif JP', 'Yu Mincho', 'MS Mincho', serif;
+    font-weight: 400;
+}
+
+.font-variation-3 {
+    font-family: 'M PLUS Rounded 1c', 'Rounded Mplus 1c', 'Verdana', sans-serif;
+    font-weight: 400;
+}
+
+.font-variation-4 {
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    font-weight: 400;
+}
+
+.font-variation-5 {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-weight: 400;
+}
+
+.font-variation-6 {
+    font-family: 'Trebuchet MS', 'Lucida Sans', sans-serif;
+    font-weight: 400;
+}
+
+/* 出力テキストのスタイル */
+.output-text {
+    font-size: 2rem;
+    line-height: 1.8;
+    color: #2c3e50;
+    word-wrap: break-word;
+}
+
+.char-span {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+.char-span:hover {
+    transform: scale(1.1);
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 600px) {
+    .container {
+        padding: 20px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .output-text {
+        font-size: 1.5rem;
+    }
+}
