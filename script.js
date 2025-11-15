@@ -435,6 +435,12 @@ outputArea.addEventListener('compositionend', (event) => {
     const insertedText = event.data;
     console.log('✅ [contenteditable compositionend] IME確定:', insertedText);
 
+    // DOM状態をキャプチャ
+    const domSnapshot = outputArea.innerHTML;
+    const textContent = outputArea.textContent;
+    console.log('🔍 DOM状態:', domSnapshot);
+    console.log('🔍 textContent:', textContent);
+
     if (!insertedText) {
         console.log('⚠️ 挿入テキストなし');
         return;
@@ -472,7 +478,9 @@ outputArea.addEventListener('compositionend', (event) => {
         created: newInstances.length,
         cursorPos: cursorPos,
         insertPos: insertPos,
-        beforeLength: beforeLength
+        beforeLength: beforeLength,
+        domSnapshot: domSnapshot,
+        textContent: textContent
     });
 });
 
@@ -529,7 +537,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.27';
+    const version = 'v3.0.28';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
