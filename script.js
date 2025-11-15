@@ -87,6 +87,16 @@ function processText(instances) {
 }
 
 /**
+ * textareaをcharacterInstancesに同期
+ * @param {number} cursorPos - カーソル位置
+ */
+function syncTextarea(cursorPos) {
+    const text = characterInstances.map(inst => inst.char).join('');
+    textInput.value = text;
+    textInput.setSelectionRange(cursorPos, cursorPos);
+}
+
+/**
  * characterInstancesをHTMLにレンダリング
  */
 function render() {
@@ -241,11 +251,7 @@ textInput.addEventListener('beforeinput', (event) => {
             const deleted = characterInstances.splice(cursorPos, deleteCount);
             console.log(`🗑️ ${deleteCount}個削除`);
 
-            // textareaの値を同期
-            const newText = characterInstances.map(inst => inst.char).join('');
-            textInput.value = newText;
-            textInput.setSelectionRange(cursorPos, cursorPos);
-
+            syncTextarea(cursorPos);
             render();
 
             // デバッグログ
@@ -278,11 +284,7 @@ textInput.addEventListener('beforeinput', (event) => {
             characterInstances.splice(deletePos, 1);
             console.log(`🗑️ 削除: ID=${deleted.id} "${deleted.char}" var=${deleted.variation} at pos=${deletePos}`);
 
-            // textareaの値を同期
-            const newText = characterInstances.map(inst => inst.char).join('');
-            textInput.value = newText;
-            textInput.setSelectionRange(deletePos, deletePos);
-
+            syncTextarea(deletePos);
             render();
 
             // デバッグログ（削除後の状態を表示）
@@ -342,11 +344,7 @@ textInput.addEventListener('compositionend', (event) => {
         console.log(`   ID=${inst.id} "${inst.char}" var=${inst.variation}`);
     });
 
-    // textareaの値を同期（念のため）
-    const newText = characterInstances.map(inst => inst.char).join('');
-    textInput.value = newText;
-    textInput.setSelectionRange(cursorPos, cursorPos);
-
+    syncTextarea(cursorPos);
     render();
 
     const instancesDebug = newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
@@ -374,11 +372,7 @@ textInput.addEventListener('keydown', (event) => {
         const newlineInstance = createInstance('\n', 0);
         characterInstances.splice(cursorPos, 0, newlineInstance);
 
-        // textareaの値を同期
-        const newText = characterInstances.map(inst => inst.char).join('');
-        textInput.value = newText;
-        textInput.setSelectionRange(cursorPos + 1, cursorPos + 1);
-
+        syncTextarea(cursorPos + 1); // 改行後はカーソルを1つ進める
         render();
 
         addDebugLog('↵ 改行挿入', {
