@@ -3,9 +3,10 @@
 // 設定
 const FONT_VARIATIONS_COUNT = 6; // 利用可能なフォントバリエーションの数
 
-// 状態管理: 確定されたテキストと各位置のバリエーションを保存
-let currentText = '';
-let currentVariations = [];
+// 状態管理: 文字インスタンスの配列
+// 各要素は { id: number, char: string, variation: number }
+let characterInstances = [];
+let nextId = 1; // 次に割り当てるID
 
 // DOM要素の取得
 const textInput = document.getElementById('text-input');
@@ -41,21 +42,19 @@ function assignRandomVariations(text) {
 }
 
 /**
- * テキストを処理して、各文字にフォントバリエーションを適用
- * @param {string} text - 処理するテキスト
- * @param {number[]} variations - 各文字位置のバリエーション番号
+ * 文字インスタンス配列からHTMLを生成
+ * @param {Array} instances - 文字インスタンスの配列
  * @returns {string} HTML文字列
  */
-function processText(text, variations) {
-    if (!text || text.trim() === '') {
+function processText(instances) {
+    if (!instances || instances.length === 0) {
         return '<p class="placeholder">ここに結果が表示されます</p>';
     }
 
-    // テキストを1文字ずつ分解（Unicodeサロゲートペアにも対応）
-    const characters = Array.from(text);
+    // 各文字インスタンスをspanでラップ
+    const processedChars = instances.map(instance => {
+        const { char, variation } = instance;
 
-    // 各文字をspanでラップし、対応するフォントバリエーションクラスを適用
-    const processedChars = characters.map((char, index) => {
         // 改行やスペースの処理
         if (char === '\n') {
             return '<br>';
@@ -63,9 +62,6 @@ function processText(text, variations) {
         if (char === ' ') {
             return ' ';
         }
-
-        // この位置のバリエーションを取得
-        const variation = variations[index];
 
         // spanでラップしてクラスを適用
         return `<span class="char-span font-variation-${variation}">${char}</span>`;
@@ -81,117 +77,119 @@ function processText(text, variations) {
 function updateOutput(text) {
     console.log('🔄 updateOutput が呼ばれました');
 
-    const oldText = currentText;
     const newCharacters = Array.from(text);
-    const oldCharacters = Array.from(oldText);
-    const newLength = newCharacters.length;
-    const oldLength = oldCharacters.length;
+    const oldText = characterInstances.map(inst => inst.char).join('');
 
-    // テキストに変更がない場合は何もしない
-    if (text === oldText) {
-        console.log('⏸️ テキスト変更なし - 処理をスキップ');
-        return;
-    }
+    // 改行・スペース以外の文字インスタンスのみ抽出
+    const oldCharsFiltered = characterInstances.filter(inst => inst.char !== '\n' && inst.char !== ' ');
+    const oldTextFiltered = oldCharsFiltered.map(inst => inst.char).join('');
 
-    // 新しいバリエーション配列を構築
-    const newVariations = [];
+    let reuseCount = 0;
+    let newCount = 0;
+    const newInstances = [];
 
-    // 末尾での変更を想定したシンプルなアプローチ
-    // これは日本語入力（末尾追加）とBackspace（末尾削除）に最適化されています
+    // 戦略1: 既存テキストが新テキストに部分文字列として含まれているか確認
+    const oldTextIndex = text.indexOf(oldTextFiltered);
 
-    if (newLength >= oldLength) {
-        // テキストが長くなった（追加または置換）
-        console.log(`📝 テキスト増加: ${oldLength} → ${newLength}`);
+    if (oldTextIndex !== -1 && oldTextFiltered.length > 0) {
+        // 既存テキストが見つかった場合 - 位置ベースで保持
+        console.log(`📍 既存テキスト「${oldTextFiltered}」を位置${oldTextIndex}で発見 - 位置ベース保持を実行`);
 
-        for (let i = 0; i < newLength; i++) {
+        let oldCharIndexInFiltered = 0; // oldCharsFiltered内のインデックス
+
+        for (let i = 0; i < newCharacters.length; i++) {
             const char = newCharacters[i];
 
+            // 改行やスペースの場合
             if (char === '\n' || char === ' ') {
-                newVariations[i] = 0;
+                newInstances.push({
+                    id: nextId++,
+                    char: char,
+                    variation: 0
+                });
                 continue;
             }
 
-            // 既存の範囲内で文字が一致する場合は保持
-            if (i < oldLength && oldCharacters[i] === char && currentVariations[i]) {
-                newVariations[i] = currentVariations[i];
-                console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
+            // この位置が既存テキストの範囲内かチェック
+            if (i >= oldTextIndex && oldCharIndexInFiltered < oldCharsFiltered.length) {
+                const oldInstance = oldCharsFiltered[oldCharIndexInFiltered];
+                if (oldInstance.char === char) {
+                    // 既存インスタンスを再利用
+                    newInstances.push(oldInstance);
+                    console.log(`📌 位置${i}: "${char}" (ID:${oldInstance.id}) を再利用、バリエーション${oldInstance.variation}を保持`);
+                    reuseCount++;
+                    oldCharIndexInFiltered++;
+                } else {
+                    // 文字が一致しない場合は新規作成
+                    const newInstance = {
+                        id: nextId++,
+                        char: char,
+                        variation: getRandomVariation()
+                    };
+                    newInstances.push(newInstance);
+                    console.log(`✨ 位置${i}: "${char}" (ID:${newInstance.id}) を新規作成（不一致）、バリエーション${newInstance.variation}`);
+                    newCount++;
+                }
             } else {
-                // 新しい文字または変更された文字
-                newVariations[i] = getRandomVariation();
-                console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
+                // 既存テキスト範囲外 - 新規インスタンス作成
+                const newInstance = {
+                    id: nextId++,
+                    char: char,
+                    variation: getRandomVariation()
+                };
+                newInstances.push(newInstance);
+                console.log(`✨ 位置${i}: "${char}" (ID:${newInstance.id}) を新規作成、バリエーション${newInstance.variation}`);
+                newCount++;
             }
         }
     } else {
-        // テキストが短くなった（削除）
-        console.log(`🗑️ テキスト減少: ${oldLength} → ${newLength}`);
+        // 戦略2: 既存テキストが見つからない場合 - グリーディマッチング
+        console.log('🔍 既存テキストが見つからない - グリーディマッチングを実行');
 
-        // 最長共通プレフィックスを見つける（削除位置を特定）
-        let prefixLength = 0;
-        while (
-            prefixLength < newLength &&
-            prefixLength < oldLength &&
-            newCharacters[prefixLength] === oldCharacters[prefixLength]
-        ) {
-            prefixLength++;
-        }
+        const availableInstances = [...oldCharsFiltered];
 
-        console.log(`📊 共通プレフィックス: ${prefixLength}文字`);
-
-        if (prefixLength === newLength) {
-            // 全ての新しい文字が元のプレフィックスと一致（末尾削除）
-            console.log(`✂️ 末尾削除を検出`);
-            for (let i = 0; i < newLength; i++) {
-                const char = newCharacters[i];
-                if (char === '\n' || char === ' ') {
-                    newVariations[i] = 0;
-                } else {
-                    newVariations[i] = currentVariations[i];
-                    console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
-                }
-            }
-        } else {
-            // 途中での削除（複雑なケース）
-            console.log(`⚠️ 途中削除を検出（位置${prefixLength}付近）`);
-
-            // プレフィックス部分は保持
-            for (let i = 0; i < prefixLength; i++) {
-                const char = newCharacters[i];
-                if (char === '\n' || char === ' ') {
-                    newVariations[i] = 0;
-                } else {
-                    newVariations[i] = currentVariations[i];
-                    console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持（プレフィックス）`);
-                }
+        for (const char of newCharacters) {
+            // 改行やスペースの場合
+            if (char === '\n' || char === ' ') {
+                newInstances.push({
+                    id: nextId++,
+                    char: char,
+                    variation: 0
+                });
+                continue;
             }
 
-            // プレフィックス以降は、削除後の位置にマッピング
-            const deleteCount = oldLength - newLength;
-            for (let i = prefixLength; i < newLength; i++) {
-                const char = newCharacters[i];
-                if (char === '\n' || char === ' ') {
-                    newVariations[i] = 0;
-                } else {
-                    // 削除された文字数分オフセットして旧バリエーションを取得
-                    const oldIndex = i + deleteCount;
-                    if (oldIndex < oldLength && oldCharacters[oldIndex] === char && currentVariations[oldIndex]) {
-                        newVariations[i] = currentVariations[oldIndex];
-                        console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[oldIndex]}を保持（旧位置${oldIndex}）`);
-                    } else {
-                        newVariations[i] = getRandomVariation();
-                        console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
-                    }
-                }
+            // プールから同じ文字のインスタンスを探す
+            const matchIndex = availableInstances.findIndex(inst => inst.char === char);
+
+            if (matchIndex !== -1) {
+                // 既存のインスタンスを再利用
+                const reusedInstance = availableInstances.splice(matchIndex, 1)[0];
+                newInstances.push(reusedInstance);
+                console.log(`📌 "${char}" (ID:${reusedInstance.id}) を再利用、バリエーション${reusedInstance.variation}を保持`);
+                reuseCount++;
+            } else {
+                // 新しいインスタンスを作成
+                const newInstance = {
+                    id: nextId++,
+                    char: char,
+                    variation: getRandomVariation()
+                };
+                newInstances.push(newInstance);
+                console.log(`✨ "${char}" (ID:${newInstance.id}) を新規作成、バリエーション${newInstance.variation}を割り当て`);
+                newCount++;
             }
         }
     }
 
-    currentText = text;
-    currentVariations = newVariations;
+    const deletedCount = oldCharsFiltered.length - reuseCount;
+    console.log(`✅ 完了: 再利用 ${reuseCount}個, 新規 ${newCount}個, 削除 ${deletedCount}個`);
 
-    console.log('✅ バリエーション更新完了:', currentVariations);
+    // 状態を更新
+    characterInstances = newInstances;
 
     // HTMLを生成して表示
-    const processedHTML = processText(currentText, currentVariations);
+    const processedHTML = processText(characterInstances);
     outputArea.innerHTML = processedHTML;
 
     // has-contentクラスを追加してスタイルを変更
@@ -274,13 +272,12 @@ function updateDebugDisplay() {
  * デバッグ用: 現在の文字バリエーション情報をコンソールに表示
  */
 function debugShowVariations() {
-    console.log('=== 文字バリエーション情報 ===');
-    console.log(`テキスト: "${currentText}"`);
+    console.log('=== 文字インスタンス情報 ===');
+    console.log(`インスタンス数: ${characterInstances.length}`);
 
-    const characters = Array.from(currentText);
-    characters.forEach((char, index) => {
-        if (char !== '\n' && char !== ' ') {
-            console.log(`位置${index}: "${char}" → バリエーション ${currentVariations[index]}`);
+    characterInstances.forEach((inst, index) => {
+        if (inst.char !== '\n' && inst.char !== ' ') {
+            console.log(`位置${index}: "${inst.char}" (ID:${inst.id}) → バリエーション ${inst.variation}`);
         }
     });
     console.log('============================');
@@ -307,42 +304,19 @@ textInput.addEventListener('compositionend', (event) => {
     isComposing = false;
     console.log('✅ [compositionend] IME変換確定:', event.data);
 
-    // 変換確定時に自動的にバリエーション割り当て
-    const oldText = currentText;
     const text = textInput.value;
-    const oldLength = Array.from(oldText).length;
-    const newLength = Array.from(text).length;
+    const oldInstanceCount = characterInstances.length;
 
     updateOutput(text);
     debugShowVariations();
 
-    // テキストが変わっていない場合
-    if (text === oldText) {
-        addDebugLog('✅ IME変換確定', {
-            text: text,
-            unchanged: true
-        });
-    } else {
-        // テキストが変わった場合、保持と新規の統計を計算
-        let keptCount = 0;
-        const oldChars = Array.from(oldText);
-        const newChars = Array.from(text);
+    const newInstanceCount = characterInstances.length;
+    const variations = characterInstances.map(inst => inst.variation).filter(v => v !== 0);
 
-        for (let i = 0; i < Math.min(oldChars.length, newChars.length); i++) {
-            if (oldChars[i] === newChars[i]) {
-                keptCount++;
-            }
-        }
-
-        const newCharCount = newLength - keptCount;
-
-        addDebugLog('✅ IME変換確定 → 更新完了', {
-            text: text,
-            variations: currentVariations,
-            kept: keptCount,
-            newChars: newCharCount
-        });
-    }
+    addDebugLog('✅ IME変換確定 → 更新完了', {
+        text: text,
+        variations: variations
+    });
 });
 
 /**
@@ -364,21 +338,9 @@ textInput.addEventListener('keydown', (event) => {
         event.preventDefault();
         console.log('🔄 [keydown Enter] テキスト更新を実行');
 
-        const oldText = currentText;
         const text = textInput.value;
-
         updateOutput(text);
-
-        // デバッグ情報を表示
         debugShowVariations();
-
-        // テキストが変わっていない場合（通常、compositionendの後のEnterキーなど）
-        if (text === oldText) {
-            addDebugLog('🔄 Enter押下（変更なし・スキップ）', {
-                text: text,
-                unchanged: true
-            });
-        }
     }
 });
 
@@ -395,33 +357,26 @@ textInput.addEventListener('input', (event) => {
 
     console.log('📝 [input] テキスト変更検知（削除・ペーストなど）');
 
-    const oldText = currentText;
+    const oldLength = characterInstances.length;
     const text = event.target.value;
+    const newLength = Array.from(text).length;
 
     updateOutput(text);
 
-    // デバッグログ
-    if (text === oldText) {
-        addDebugLog('📝 テキスト変更（変更なし）', {
-            unchanged: true
-        });
-    } else {
-        const oldLength = Array.from(oldText).length;
-        const newLength = Array.from(text).length;
+    const variations = characterInstances.map(inst => inst.variation).filter(v => v !== 0);
 
-        if (newLength < oldLength) {
-            addDebugLog('🗑️ 文字削除 → 更新完了', {
-                text: text,
-                variations: currentVariations,
-                deleted: oldLength - newLength
-            });
-        } else if (newLength > oldLength) {
-            addDebugLog('📝 文字追加 → 更新完了', {
-                text: text,
-                variations: currentVariations,
-                added: newLength - oldLength
-            });
-        }
+    if (newLength < oldLength) {
+        addDebugLog('🗑️ 文字削除 → 更新完了', {
+            text: text,
+            variations: variations,
+            deleted: oldLength - newLength
+        });
+    } else if (newLength > oldLength) {
+        addDebugLog('📝 文字追加 → 更新完了', {
+            text: text,
+            variations: variations,
+            added: newLength - oldLength
+        });
     }
 });
 
@@ -441,6 +396,6 @@ window.yuragiFontSystem = {
     processText,
     updateOutput,
     debugShowVariations,
-    getCurrentText: () => currentText,
-    getCurrentVariations: () => currentVariations
+    getInstances: () => characterInstances,
+    getInstanceCount: () => characterInstances.length
 };
