@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>手書き風フォントシステム - 技術検証デモ</title>
-    <link rel="stylesheet" href="style.css?v=19">
+    <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
     <div class="container">
@@ -14,7 +14,8 @@
         </header>
 
         <main>
-            <section class="input-section">
+            <!-- 旧入力欄: 非表示（プロトタイプ中） -->
+            <section class="input-section" style="display: none;">
                 <label for="text-input">テキストを入力してEnterキーを押してください:</label>
                 <textarea
                     id="text-input"
@@ -25,10 +26,13 @@
             </section>
 
             <section class="output-section">
-                <h2>表示結果:</h2>
-                <div id="output" class="output-area">
-                    <p class="placeholder">ここに結果が表示されます</p>
+                <h2>直接編集可能なエディタ:</h2>
+                <div id="output"
+                     class="output-area"
+                     contenteditable="true"
+                     data-placeholder="ここに文字を入力してください（例: ワクワクする）">
                 </div>
+                <p class="hint">※ 各文字にランダムでフォントが自動割り当てされます</p>
             </section>
 
             <section class="debug-section">
@@ -45,10 +49,10 @@
         </main>
 
         <footer>
-            <p>yuragi = trembling/variance</p>
+            <p>yuragi = trembling/variance (contenteditable prototype)</p>
         </footer>
     </div>
 
-    <script src="script.js?v=22"></script>
+    <script src="script.js?v=23"></script>
 </body>
 </html>

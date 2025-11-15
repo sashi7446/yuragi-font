@@ -96,6 +96,24 @@ h2 {
     background: #f8f9fa;
     border-radius: 8px;
     border: 2px dashed #ddd;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    transition: border-color 0.3s, background-color 0.3s;
+}
+
+/* contenteditable focus state */
+.output-area[contenteditable="true"]:focus {
+    outline: none;
+    border-color: #3498db;
+    border-style: solid;
+    background: #ffffff;
+}
+
+/* contenteditable placeholder */
+.output-area[contenteditable="true"]:empty:before {
+    content: attr(data-placeholder);
+    color: #95a5a6;
+    font-style: italic;
 }
 
 .output-area.has-content {

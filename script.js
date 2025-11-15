@@ -19,6 +19,58 @@ const debugDisplay = document.getElementById('debug-display');
 const debugLogs = [];
 
 /**
+ * contenteditable要素内のカーソル位置を取得（characterInstances配列のインデックス）
+ * @returns {number} カーソル位置（文字インデックス）
+ */
+function getCursorPositionInContentEditable() {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return 0;
+
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(outputArea);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+
+    // span要素を数えて位置を計算
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(preCaretRange.cloneContents());
+
+    const spans = tempDiv.querySelectorAll('span[data-instance-id]');
+    return spans.length;
+}
+
+/**
+ * contenteditable要素内の指定位置にカーソルを設定
+ * @param {number} position - 文字インデックス
+ */
+function setCursorPositionInContentEditable(position) {
+    const spans = outputArea.querySelectorAll('span[data-instance-id]');
+
+    if (position >= spans.length) {
+        // 末尾にカーソル
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.selectNodeContents(outputArea);
+        range.collapse(false); // 末尾
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+    }
+
+    if (position < 0) position = 0;
+
+    const targetSpan = spans[position];
+    if (targetSpan) {
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.setStartBefore(targetSpan);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+}
+
+/**
  * ランダムなフォントバリエーション番号を取得
  * @returns {number} 1からFONT_VARIATIONS_COUNTの間のランダムな整数
  */
@@ -69,7 +121,7 @@ function processText(instances) {
 
     // 各文字インスタンスをspanでラップ
     const processedChars = instances.map(instance => {
-        const { char, variation } = instance;
+        const { id, char, variation } = instance;
 
         // 改行やスペースの処理
         if (char === '\n') {
@@ -79,8 +131,8 @@ function processText(instances) {
             return ' ';
         }
 
-        // spanでラップしてクラスを適用
-        return `<span class="char-span font-variation-${variation}">${char}</span>`;
+        // spanでラップしてクラスとdata-instance-idを適用
+        return `<span class="char-span font-variation-${variation}" data-instance-id="${id}">${char}</span>`;
     });
 
     return `<div class="output-text">${processedChars.join('')}</div>`;
@@ -97,18 +149,31 @@ function syncTextarea(cursorPos) {
 }
 
 /**
- * characterInstancesをHTMLにレンダリング
+ * characterInstancesをHTMLにレンダリング（contenteditable対応）
  */
 function render() {
-    const processedHTML = processText(characterInstances);
-    outputArea.innerHTML = processedHTML;
-
-    const text = characterInstances.map(inst => inst.char).join('');
-    if (text && text.trim() !== '') {
-        outputArea.classList.add('has-content');
-    } else {
+    if (characterInstances.length === 0) {
+        outputArea.innerHTML = '';
         outputArea.classList.remove('has-content');
+        return;
     }
+
+    // 各文字インスタンスをspan要素として直接生成（divで囲まない）
+    const htmlFragments = characterInstances.map(instance => {
+        const { id, char, variation } = instance;
+
+        if (char === '\n') {
+            return '<br>';
+        }
+        if (char === ' ') {
+            return ' ';
+        }
+
+        return `<span class="char-span font-variation-${variation}" data-instance-id="${id}">${char}</span>`;
+    });
+
+    outputArea.innerHTML = htmlFragments.join('');
+    outputArea.classList.add('has-content');
 
     // デバッグ表示を更新
     const instancesDebug = characterInstances
@@ -389,6 +454,107 @@ textInput.addEventListener('keydown', (event) => {
 //     // 現在はbeforeinput/compositionendで処理
 //     console.log('⚠️ [input] イベント検出 - 想定外');
 // });
+
+// ========================================
+// contenteditable用イベントリスナー
+// ========================================
+
+let isComposingInEditable = false;
+
+/**
+ * compositionstart - IME開始（contenteditable）
+ */
+outputArea.addEventListener('compositionstart', () => {
+    isComposingInEditable = true;
+    console.log('🎌 [contenteditable compositionstart] IME変換開始');
+    addDebugLog('🎌 IME開始 (editable)', { isComposing: true });
+});
+
+/**
+ * compositionend - IME確定（contenteditable）
+ */
+outputArea.addEventListener('compositionend', (event) => {
+    isComposingInEditable = false;
+    const insertedText = event.data;
+    console.log('✅ [contenteditable compositionend] IME確定:', insertedText);
+
+    if (!insertedText) {
+        console.log('⚠️ 挿入テキストなし');
+        return;
+    }
+
+    // カーソル位置を取得
+    const cursorPos = getCursorPositionInContentEditable();
+    const insertPos = cursorPos - insertedText.length;
+
+    console.log(`📝 挿入位置: ${insertPos}, 挿入テキスト: "${insertedText}"`);
+
+    // 挿入された文字ごとにインスタンスを作成
+    const insertedChars = Array.from(insertedText);
+    const newInstances = insertedChars.map(char => createInstance(char));
+
+    // characterInstancesに挿入
+    characterInstances.splice(insertPos, 0, ...newInstances);
+
+    console.log(`✨ ${newInstances.length}個のインスタンスを作成して挿入:`);
+    newInstances.forEach(inst => {
+        console.log(`   ID=${inst.id} "${inst.char}" var=${inst.variation}`);
+    });
+
+    render();
+    setCursorPositionInContentEditable(cursorPos);
+
+    const instancesDebug = newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
+    addDebugLog('✅ IME確定 (editable)', {
+        text: insertedText,
+        instances: instancesDebug,
+        created: newInstances.length
+    });
+});
+
+/**
+ * beforeinput - 削除等（contenteditable）
+ */
+outputArea.addEventListener('beforeinput', (event) => {
+    const inputType = event.inputType;
+    console.log(`⚡ [contenteditable beforeinput] ${inputType}`);
+
+    // 削除系の操作
+    if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
+        event.preventDefault();
+
+        const cursorPos = getCursorPositionInContentEditable();
+
+        let deletePos = -1;
+        if (inputType === 'deleteContentBackward' && cursorPos > 0) {
+            deletePos = cursorPos - 1;
+        } else if (inputType === 'deleteContentForward' && cursorPos < characterInstances.length) {
+            deletePos = cursorPos;
+        }
+
+        if (deletePos >= 0 && deletePos < characterInstances.length) {
+            const deleted = characterInstances[deletePos];
+            characterInstances.splice(deletePos, 1);
+            console.log(`🗑️ 削除: ID=${deleted.id} "${deleted.char}" var=${deleted.variation} at pos=${deletePos}`);
+
+            render();
+            setCursorPositionInContentEditable(deletePos);
+
+            const remainingDebug = characterInstances
+                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+                .join(' ');
+
+            addDebugLog('🗑️ 削除 (editable)', {
+                position: deletePos,
+                deleted: `ID:${deleted.id} "${deleted.char}" var:${deleted.variation}`,
+                remaining: remainingDebug
+            });
+        }
+
+        return;
+    }
+});
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
