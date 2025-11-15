@@ -134,22 +134,20 @@ function detectDeletion(oldText, newText, cursorPos) {
 }
 
 /**
- * 出力エリアを更新
+ * 出力エリアを更新（シンプル版）
  * @param {string} text - 表示するテキスト
  */
 function updateOutput(text) {
     console.log('🔄 updateOutput が呼ばれました');
 
-    // 削除検出
+    // 1. カーソル位置から削除を検出
     const cursorPos = textInput.selectionStart;
     const deletion = detectDeletion(previousText, text, cursorPos);
 
     if (deletion && deletion.instances.length > 0) {
         console.log('🗑️ 削除を検出:');
-        console.log(`  位置: ${deletion.position}`);
-        console.log(`  文字: "${deletion.chars}"`);
         deletion.instances.forEach(inst => {
-            console.log(`  削除されたインスタンス: ID=${inst.id}, char="${inst.char}", variation=${inst.variation}`);
+            console.log(`  削除: ID=${inst.id}, char="${inst.char}", variation=${inst.variation}`);
         });
 
         addDebugLog('🗑️ 削除検出', {
@@ -159,142 +157,64 @@ function updateOutput(text) {
         });
     }
 
-    // 前回の状態を更新
-    previousText = text;
-    previousCursorPos = cursorPos;
+    // 2. 削除されたIDをセットに格納
+    const deletedIds = new Set();
+    if (deletion && deletion.instances.length > 0) {
+        deletion.instances.forEach(inst => deletedIds.add(inst.id));
+    }
 
+    // 3. 削除されたインスタンスを除外してavailable poolを作成
+    let availableInstances = characterInstances.filter(inst => !deletedIds.has(inst.id));
+    console.log(`💡 利用可能インスタンス: ${availableInstances.length}個`);
+
+    // 4. 新テキストの各文字に対してマッチング
+    const newInstances = [];
     const newCharacters = Array.from(text);
-    const oldText = characterInstances.map(inst => inst.char).join('');
-
-    // 改行・スペース以外の文字インスタンスのみ抽出
-    const oldCharsFiltered = characterInstances.filter(inst => inst.char !== '\n' && inst.char !== ' ');
-    const oldTextFiltered = oldCharsFiltered.map(inst => inst.char).join('');
-
     let reuseCount = 0;
     let newCount = 0;
-    const newInstances = [];
 
-    // 戦略1: 既存テキストが新テキストに部分文字列として含まれているか確認
-    const oldTextIndex = text.indexOf(oldTextFiltered);
-
-    if (oldTextIndex !== -1 && oldTextFiltered.length > 0) {
-        // 既存テキストが見つかった場合 - 位置ベースで保持
-        console.log(`📍 既存テキスト「${oldTextFiltered}」を位置${oldTextIndex}で発見 - 位置ベース保持を実行`);
-
-        let oldCharIndexInFiltered = 0; // oldCharsFiltered内のインデックス
-
-        for (let i = 0; i < newCharacters.length; i++) {
-            const char = newCharacters[i];
-
-            // 改行やスペースの場合
-            if (char === '\n' || char === ' ') {
-                newInstances.push({
-                    id: nextId++,
-                    char: char,
-                    variation: 0
-                });
-                continue;
-            }
-
-            // この位置が既存テキストの範囲内かチェック
-            if (i >= oldTextIndex && oldCharIndexInFiltered < oldCharsFiltered.length) {
-                const oldInstance = oldCharsFiltered[oldCharIndexInFiltered];
-                if (oldInstance.char === char) {
-                    // 既存インスタンスを再利用
-                    newInstances.push(oldInstance);
-                    console.log(`📌 位置${i}: "${char}" (ID:${oldInstance.id}) を再利用、バリエーション${oldInstance.variation}を保持`);
-                    reuseCount++;
-                    oldCharIndexInFiltered++;
-                } else {
-                    // 文字が一致しない場合は新規作成
-                    const newInstance = {
-                        id: nextId++,
-                        char: char,
-                        variation: getRandomVariation()
-                    };
-                    newInstances.push(newInstance);
-                    console.log(`✨ 位置${i}: "${char}" (ID:${newInstance.id}) を新規作成（不一致）、バリエーション${newInstance.variation}`);
-                    newCount++;
-                }
-            } else {
-                // 既存テキスト範囲外 - 新規インスタンス作成
-                const newInstance = {
-                    id: nextId++,
-                    char: char,
-                    variation: getRandomVariation()
-                };
-                newInstances.push(newInstance);
-                console.log(`✨ 位置${i}: "${char}" (ID:${newInstance.id}) を新規作成、バリエーション${newInstance.variation}`);
-                newCount++;
-            }
-        }
-    } else {
-        // 戦略2: 既存テキストが見つからない場合 - グリーディマッチング
-        console.log('🔍 既存テキストが見つからない - グリーディマッチングを実行');
-
-        const availableInstances = [...oldCharsFiltered];
-
-        // 削除検出: 古いテキストより新しいテキストの方が短い場合
-        const isDeletion = oldCharsFiltered.length > newCharacters.filter(c => c !== '\n' && c !== ' ').length;
-
-        if (isDeletion) {
-            console.log('🗑️ 削除を検出 - 後ろからマッチング戦略を使用');
+    for (const char of newCharacters) {
+        // 改行やスペースは常に新規作成（variation 0）
+        if (char === '\n' || char === ' ') {
+            newInstances.push({
+                id: nextId++,
+                char: char,
+                variation: 0
+            });
+            continue;
         }
 
-        for (const char of newCharacters) {
-            // 改行やスペースの場合
-            if (char === '\n' || char === ' ') {
-                newInstances.push({
-                    id: nextId++,
-                    char: char,
-                    variation: 0
-                });
-                continue;
-            }
+        // availableから同じ文字を前から検索
+        const matchIndex = availableInstances.findIndex(inst => inst.char === char);
 
-            // プールから同じ文字のインスタンスを探す
-            // 削除の場合は後ろから、追加の場合は前から探す
-            let matchIndex = -1;
-            if (isDeletion) {
-                // 後ろから検索 (最後に見つかったインデックスを取得)
-                for (let i = availableInstances.length - 1; i >= 0; i--) {
-                    if (availableInstances[i].char === char) {
-                        matchIndex = i;
-                        break;
-                    }
-                }
-            } else {
-                // 前から検索
-                matchIndex = availableInstances.findIndex(inst => inst.char === char);
-            }
-
-            if (matchIndex !== -1) {
-                // 既存のインスタンスを再利用
-                const reusedInstance = availableInstances.splice(matchIndex, 1)[0];
-                newInstances.push(reusedInstance);
-                console.log(`📌 "${char}" (ID:${reusedInstance.id}) を再利用、バリエーション${reusedInstance.variation}を保持`);
-                reuseCount++;
-            } else {
-                // 新しいインスタンスを作成
-                const newInstance = {
-                    id: nextId++,
-                    char: char,
-                    variation: getRandomVariation()
-                };
-                newInstances.push(newInstance);
-                console.log(`✨ "${char}" (ID:${newInstance.id}) を新規作成、バリエーション${newInstance.variation}を割り当て`);
-                newCount++;
-            }
+        if (matchIndex !== -1) {
+            // 見つかった → 再利用
+            const reusedInstance = availableInstances.splice(matchIndex, 1)[0];
+            newInstances.push(reusedInstance);
+            console.log(`📌 "${char}" (ID:${reusedInstance.id}) 再利用, var:${reusedInstance.variation}`);
+            reuseCount++;
+        } else {
+            // 見つからない → 新規作成
+            const newInstance = {
+                id: nextId++,
+                char: char,
+                variation: getRandomVariation()
+            };
+            newInstances.push(newInstance);
+            console.log(`✨ "${char}" (ID:${newInstance.id}) 新規作成, var:${newInstance.variation}`);
+            newCount++;
         }
     }
 
-    const deletedCount = oldCharsFiltered.length - reuseCount;
+    const deletedCount = deletedIds.size;
     console.log(`✅ 完了: 再利用 ${reuseCount}個, 新規 ${newCount}個, 削除 ${deletedCount}個`);
 
-    // 状態を更新
+    // 5. 状態を更新
     characterInstances = newInstances;
+    previousText = text;
+    previousCursorPos = cursorPos;
 
-    // デバッグログに現在のcharacterInstancesを追加
+    // 6. デバッグログ
     const instancesDebug = characterInstances
         .filter(inst => inst.char !== '\n' && inst.char !== ' ')
         .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
@@ -308,11 +228,10 @@ function updateOutput(text) {
         deleted: deletedCount
     });
 
-    // HTMLを生成して表示
+    // 7. HTMLを生成して表示
     const processedHTML = processText(characterInstances);
     outputArea.innerHTML = processedHTML;
 
-    // has-contentクラスを追加してスタイルを変更
     if (text && text.trim() !== '') {
         outputArea.classList.add('has-content');
     } else {
