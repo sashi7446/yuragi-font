@@ -261,6 +261,15 @@ function updateDebugDisplay() {
         if (log.data.isComposing !== undefined) {
             dataHTML += `<div class="debug-data">IME変換中: ${log.data.isComposing ? 'はい' : 'いいえ'}</div>`;
         }
+        if (log.data.cursorPos !== undefined) {
+            dataHTML += `<div class="debug-data" style="font-weight: bold; color: #e74c3c;">📍 カーソル位置: ${log.data.cursorPos}</div>`;
+        }
+        if (log.data.insertPos !== undefined) {
+            dataHTML += `<div class="debug-data" style="font-weight: bold; color: #e67e22;">📝 挿入位置: ${log.data.insertPos}</div>`;
+        }
+        if (log.data.beforeLength !== undefined) {
+            dataHTML += `<div class="debug-data">挿入前のインスタンス数: ${log.data.beforeLength}個</div>`;
+        }
 
         return `
             <div class="debug-event">
@@ -484,10 +493,13 @@ outputArea.addEventListener('compositionend', (event) => {
     }
 
     // カーソル位置を取得
+    const beforeLength = characterInstances.length;
     const cursorPos = getCursorPositionInContentEditable();
     const insertPos = cursorPos - insertedText.length;
 
-    console.log(`📝 挿入位置: ${insertPos}, 挿入テキスト: "${insertedText}"`);
+    console.log(`📝 挿入前の状態: インスタンス数=${beforeLength}, カーソル位置=${cursorPos}`);
+    console.log(`📝 挿入位置計算: insertPos=${insertPos} (cursorPos=${cursorPos} - textLength=${insertedText.length})`);
+    console.log(`📝 挿入テキスト: "${insertedText}"`);
 
     // 挿入された文字ごとにインスタンスを作成
     const insertedChars = Array.from(insertedText);
@@ -503,12 +515,16 @@ outputArea.addEventListener('compositionend', (event) => {
 
     render();
     setCursorPositionInContentEditable(cursorPos);
+    console.log(`📌 setCursorPositionInContentEditable(${cursorPos}) を実行`);
 
     const instancesDebug = newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
     addDebugLog('✅ IME確定 (editable)', {
         text: insertedText,
         instances: instancesDebug,
-        created: newInstances.length
+        created: newInstances.length,
+        cursorPos: cursorPos,
+        insertPos: insertPos,
+        beforeLength: beforeLength
     });
 });
 
@@ -565,7 +581,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.25';
+    const version = 'v3.0.26';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
