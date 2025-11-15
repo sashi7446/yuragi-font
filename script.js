@@ -84,6 +84,8 @@ function updateOutput(text) {
     const oldText = currentText;
     const newCharacters = Array.from(text);
     const oldCharacters = Array.from(oldText);
+    const newLength = newCharacters.length;
+    const oldLength = oldCharacters.length;
 
     // テキストに変更がない場合は何もしない
     if (text === oldText) {
@@ -94,53 +96,92 @@ function updateOutput(text) {
     // 新しいバリエーション配列を構築
     const newVariations = [];
 
-    // 簡易的な差分検出: 最長共通プレフィックスとサフィックスを見つける
-    let commonPrefixLength = 0;
-    while (
-        commonPrefixLength < newCharacters.length &&
-        commonPrefixLength < oldCharacters.length &&
-        newCharacters[commonPrefixLength] === oldCharacters[commonPrefixLength]
-    ) {
-        commonPrefixLength++;
-    }
+    // 末尾での変更を想定したシンプルなアプローチ
+    // これは日本語入力（末尾追加）とBackspace（末尾削除）に最適化されています
 
-    let commonSuffixLength = 0;
-    while (
-        commonSuffixLength < (newCharacters.length - commonPrefixLength) &&
-        commonSuffixLength < (oldCharacters.length - commonPrefixLength) &&
-        newCharacters[newCharacters.length - 1 - commonSuffixLength] ===
-        oldCharacters[oldCharacters.length - 1 - commonSuffixLength]
-    ) {
-        commonSuffixLength++;
-    }
+    if (newLength >= oldLength) {
+        // テキストが長くなった（追加または置換）
+        console.log(`📝 テキスト増加: ${oldLength} → ${newLength}`);
 
-    console.log(`📊 共通プレフィックス: ${commonPrefixLength}, 共通サフィックス: ${commonSuffixLength}`);
+        for (let i = 0; i < newLength; i++) {
+            const char = newCharacters[i];
 
-    // バリエーションを構築
-    for (let i = 0; i < newCharacters.length; i++) {
-        const char = newCharacters[i];
+            if (char === '\n' || char === ' ') {
+                newVariations[i] = 0;
+                continue;
+            }
 
-        // 改行やスペースにはバリエーションを割り当てない
-        if (char === '\n' || char === ' ') {
-            newVariations[i] = 0;
-            continue;
+            // 既存の範囲内で文字が一致する場合は保持
+            if (i < oldLength && oldCharacters[i] === char && currentVariations[i]) {
+                newVariations[i] = currentVariations[i];
+                console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
+            } else {
+                // 新しい文字または変更された文字
+                newVariations[i] = getRandomVariation();
+                console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
+            }
+        }
+    } else {
+        // テキストが短くなった（削除）
+        console.log(`🗑️ テキスト減少: ${oldLength} → ${newLength}`);
+
+        // 最長共通プレフィックスを見つける（削除位置を特定）
+        let prefixLength = 0;
+        while (
+            prefixLength < newLength &&
+            prefixLength < oldLength &&
+            newCharacters[prefixLength] === oldCharacters[prefixLength]
+        ) {
+            prefixLength++;
         }
 
-        // プレフィックス部分（変更なし）
-        if (i < commonPrefixLength) {
-            newVariations[i] = currentVariations[i];
-            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持（プレフィックス）`);
-        }
-        // サフィックス部分（変更なし）
-        else if (i >= newCharacters.length - commonSuffixLength) {
-            const oldIndex = oldCharacters.length - (newCharacters.length - i);
-            newVariations[i] = currentVariations[oldIndex];
-            console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[oldIndex]}を保持（サフィックス、旧位置${oldIndex}）`);
-        }
-        // 中間部分（変更あり）
-        else {
-            newVariations[i] = getRandomVariation();
-            console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て（中間変更部分）`);
+        console.log(`📊 共通プレフィックス: ${prefixLength}文字`);
+
+        if (prefixLength === newLength) {
+            // 全ての新しい文字が元のプレフィックスと一致（末尾削除）
+            console.log(`✂️ 末尾削除を検出`);
+            for (let i = 0; i < newLength; i++) {
+                const char = newCharacters[i];
+                if (char === '\n' || char === ' ') {
+                    newVariations[i] = 0;
+                } else {
+                    newVariations[i] = currentVariations[i];
+                    console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持`);
+                }
+            }
+        } else {
+            // 途中での削除（複雑なケース）
+            console.log(`⚠️ 途中削除を検出（位置${prefixLength}付近）`);
+
+            // プレフィックス部分は保持
+            for (let i = 0; i < prefixLength; i++) {
+                const char = newCharacters[i];
+                if (char === '\n' || char === ' ') {
+                    newVariations[i] = 0;
+                } else {
+                    newVariations[i] = currentVariations[i];
+                    console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[i]}を保持（プレフィックス）`);
+                }
+            }
+
+            // プレフィックス以降は、削除後の位置にマッピング
+            const deleteCount = oldLength - newLength;
+            for (let i = prefixLength; i < newLength; i++) {
+                const char = newCharacters[i];
+                if (char === '\n' || char === ' ') {
+                    newVariations[i] = 0;
+                } else {
+                    // 削除された文字数分オフセットして旧バリエーションを取得
+                    const oldIndex = i + deleteCount;
+                    if (oldIndex < oldLength && oldCharacters[oldIndex] === char && currentVariations[oldIndex]) {
+                        newVariations[i] = currentVariations[oldIndex];
+                        console.log(`📌 位置${i}の"${char}"は既存バリエーション${currentVariations[oldIndex]}を保持（旧位置${oldIndex}）`);
+                    } else {
+                        newVariations[i] = getRandomVariation();
+                        console.log(`✨ 位置${i}の"${char}"に新しいバリエーション${newVariations[i]}を割り当て`);
+                    }
+                }
+            }
         }
     }
 
