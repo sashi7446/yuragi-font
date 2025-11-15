@@ -10,6 +10,10 @@ let currentVariations = [];
 // DOM要素の取得
 const textInput = document.getElementById('text-input');
 const outputArea = document.getElementById('output');
+const debugDisplay = document.getElementById('debug-display');
+
+// デバッグログ履歴
+const debugLogs = [];
 
 /**
  * ランダムなフォントバリエーション番号を取得
@@ -96,6 +100,62 @@ function updateOutput(text) {
 }
 
 /**
+ * デバッグ情報を画面に表示
+ * @param {string} eventName - イベント名
+ * @param {object} data - 表示するデータ
+ */
+function addDebugLog(eventName, data = {}) {
+    const timestamp = new Date().toLocaleTimeString('ja-JP');
+    const logEntry = { eventName, timestamp, data };
+    debugLogs.unshift(logEntry); // 新しいログを先頭に追加
+
+    // 最大10件まで保持
+    if (debugLogs.length > 10) {
+        debugLogs.pop();
+    }
+
+    updateDebugDisplay();
+}
+
+/**
+ * デバッグ表示エリアを更新
+ */
+function updateDebugDisplay() {
+    if (!debugDisplay) return;
+
+    if (debugLogs.length === 0) {
+        debugDisplay.innerHTML = '<p class="debug-placeholder">イベント情報がここに表示されます</p>';
+        return;
+    }
+
+    const logsHTML = debugLogs.map(log => {
+        let dataHTML = '';
+        if (log.data.text !== undefined) {
+            dataHTML += `<div class="debug-data">テキスト: "${log.data.text}"</div>`;
+        }
+        if (log.data.variations) {
+            dataHTML += `<div class="debug-data">バリエーション: [${log.data.variations.filter(v => v !== 0).join(', ')}]</div>`;
+        }
+        if (log.data.key) {
+            dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
+        }
+        if (log.data.isComposing !== undefined) {
+            dataHTML += `<div class="debug-data">IME変換中: ${log.data.isComposing ? 'はい' : 'いいえ'}</div>`;
+        }
+
+        return `
+            <div class="debug-event">
+                <div class="debug-event-name">${log.eventName}</div>
+                <div class="debug-timestamp">${log.timestamp}</div>
+                ${dataHTML}
+            </div>
+        `;
+    }).join('');
+
+    debugDisplay.innerHTML = logsHTML;
+}
+
+/**
  * デバッグ用: 現在の文字バリエーション情報をコンソールに表示
  */
 function debugShowVariations() {
@@ -122,6 +182,7 @@ let isComposing = false;
 textInput.addEventListener('compositionstart', () => {
     isComposing = true;
     console.log('📝 [compositionstart] IME変換開始');
+    addDebugLog('📝 IME変換開始', { isComposing: true });
 });
 
 /**
@@ -135,6 +196,11 @@ textInput.addEventListener('compositionend', (event) => {
     const text = textInput.value;
     updateOutput(text);
     debugShowVariations();
+
+    addDebugLog('✅ IME変換確定 → バリエーション割り当て実行', {
+        text: text,
+        variations: currentVariations
+    });
 });
 
 /**
@@ -143,6 +209,11 @@ textInput.addEventListener('compositionend', (event) => {
  */
 textInput.addEventListener('keydown', (event) => {
     console.log('⌨️ [keydown] キー:', event.key, 'isComposing:', isComposing);
+
+    addDebugLog('⌨️ キー入力', {
+        key: event.key,
+        isComposing: isComposing
+    });
 
     if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
         // Shift+Enterでない、かつIME変換中でない場合のみ処理
@@ -154,6 +225,11 @@ textInput.addEventListener('keydown', (event) => {
 
         // デバッグ情報を表示
         debugShowVariations();
+
+        addDebugLog('🔄 Enter押下 → バリエーション割り当て実行', {
+            text: text,
+            variations: currentVariations
+        });
     }
 });
 
