@@ -113,14 +113,41 @@ function debugShowVariations() {
 
 // イベントリスナーの設定
 
+// IME変換中フラグ
+let isComposing = false;
+
+/**
+ * IME変換開始イベント
+ */
+textInput.addEventListener('compositionstart', () => {
+    isComposing = true;
+    console.log('📝 [compositionstart] IME変換開始');
+});
+
+/**
+ * IME変換確定イベント - これがスマホで変換確定した瞬間
+ */
+textInput.addEventListener('compositionend', (event) => {
+    isComposing = false;
+    console.log('✅ [compositionend] IME変換確定:', event.data);
+
+    // 変換確定時に自動的にバリエーション割り当て
+    const text = textInput.value;
+    updateOutput(text);
+    debugShowVariations();
+});
+
 /**
  * キーボードイベント処理
  * Enterキーで入力を確定（Shift+Enterは改行）
  */
 textInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        // Shift+Enterでない場合のみ処理
+    console.log('⌨️ [keydown] キー:', event.key, 'isComposing:', isComposing);
+
+    if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
+        // Shift+Enterでない、かつIME変換中でない場合のみ処理
         event.preventDefault();
+        console.log('🔄 [keydown Enter] テキスト更新を実行');
 
         const text = textInput.value;
         updateOutput(text);
