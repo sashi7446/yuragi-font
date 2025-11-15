@@ -174,6 +174,12 @@ function updateDebugDisplay() {
         if (log.data.kept !== undefined) {
             dataHTML += `<div class="debug-data">保持: ${log.data.kept}文字, 新規: ${log.data.newChars}文字</div>`;
         }
+        if (log.data.deleted !== undefined) {
+            dataHTML += `<div class="debug-data">削除: ${log.data.deleted}文字</div>`;
+        }
+        if (log.data.added !== undefined) {
+            dataHTML += `<div class="debug-data">追加: ${log.data.added}文字</div>`;
+        }
         if (log.data.key) {
             dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
         }
@@ -306,15 +312,47 @@ textInput.addEventListener('keydown', (event) => {
 });
 
 /**
- * リアルタイム更新（オプション）
- * コメントアウトを外すと、入力中もリアルタイムで表示が更新されます
+ * 入力変更イベント
+ * 文字削除やペースト時にも対応
  */
-/*
 textInput.addEventListener('input', (event) => {
+    // IME変換中は処理しない（compositionendで処理される）
+    if (isComposing) {
+        console.log('⏭️ [input] IME変換中のためスキップ');
+        return;
+    }
+
+    console.log('📝 [input] テキスト変更検知（削除・ペーストなど）');
+
+    const oldText = currentText;
     const text = event.target.value;
+
     updateOutput(text);
+
+    // デバッグログ
+    if (text === oldText) {
+        addDebugLog('📝 テキスト変更（変更なし）', {
+            unchanged: true
+        });
+    } else {
+        const oldLength = Array.from(oldText).length;
+        const newLength = Array.from(text).length;
+
+        if (newLength < oldLength) {
+            addDebugLog('🗑️ 文字削除 → 更新完了', {
+                text: text,
+                variations: currentVariations,
+                deleted: oldLength - newLength
+            });
+        } else if (newLength > oldLength) {
+            addDebugLog('📝 文字追加 → 更新完了', {
+                text: text,
+                variations: currentVariations,
+                added: newLength - oldLength
+            });
+        }
+    }
 });
-*/
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
