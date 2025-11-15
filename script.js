@@ -75,9 +75,13 @@ function processText(text, variations) {
  * @param {string} text - 表示するテキスト
  */
 function updateOutput(text) {
+    console.log('🔄 updateOutput が呼ばれました - 新しいランダム割り当てを実行');
+
     // 新しいテキストに対してランダムにバリエーションを割り当て
     currentText = text;
     currentVariations = assignRandomVariations(text);
+
+    console.log('✅ ランダム割り当て完了:', currentVariations);
 
     // HTMLを生成して表示
     const processedHTML = processText(currentText, currentVariations);
@@ -139,8 +143,10 @@ textInput.addEventListener('input', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('手書き風フォントシステム - 初期化完了');
-    console.log(`利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
+    console.log('🎨 手書き風フォントシステム v2.0 - 初期化完了');
+    console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
+    console.log('✨ 各文字の出現位置ごとに独立してランダム割り当てを行います');
+    console.log('💡 デバッグ情報: Enterキーを押すたびにコンソールに詳細情報が表示されます');
 
     // デモ用: ページ読み込み時に「ワクワクする」を自動表示（オプション）
     // updateOutput('ワクワクする');
