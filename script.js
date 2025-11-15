@@ -40,6 +40,41 @@ function getCursorPositionInContentEditable() {
 }
 
 /**
+ * contenteditable要素内の選択範囲を取得
+ * @returns {{start: number, end: number, hasSelection: boolean}} 選択範囲
+ */
+function getSelectionRangeInContentEditable() {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return { start: 0, end: 0, hasSelection: false };
+
+    const range = selection.getRangeAt(0);
+
+    // 範囲選択されていない場合（カーソルだけ）
+    if (range.collapsed) {
+        const pos = getCursorPositionInContentEditable();
+        return { start: pos, end: pos, hasSelection: false };
+    }
+
+    // 開始位置を計算
+    const startRange = range.cloneRange();
+    startRange.selectNodeContents(outputArea);
+    startRange.setEnd(range.startContainer, range.startOffset);
+    const tempDivStart = document.createElement('div');
+    tempDivStart.appendChild(startRange.cloneContents());
+    const startPos = tempDivStart.querySelectorAll('span[data-instance-id]').length;
+
+    // 終了位置を計算
+    const endRange = range.cloneRange();
+    endRange.selectNodeContents(outputArea);
+    endRange.setEnd(range.endContainer, range.endOffset);
+    const tempDivEnd = document.createElement('div');
+    tempDivEnd.appendChild(endRange.cloneContents());
+    const endPos = tempDivEnd.querySelectorAll('span[data-instance-id]').length;
+
+    return { start: startPos, end: endPos, hasSelection: true };
+}
+
+/**
  * contenteditable要素内の指定位置にカーソルを設定
  * @param {number} position - 文字インデックス
  */
@@ -514,6 +549,34 @@ outputArea.addEventListener('beforeinput', (event) => {
     if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
         event.preventDefault();
 
+        const selectionRange = getSelectionRangeInContentEditable();
+
+        // 範囲選択がある場合
+        if (selectionRange.hasSelection) {
+            const deleteCount = selectionRange.end - selectionRange.start;
+            const deleted = characterInstances.splice(selectionRange.start, deleteCount);
+            console.log(`🗑️ 範囲削除: ${deleteCount}個削除 (位置${selectionRange.start}～${selectionRange.end})`);
+
+            render();
+            setCursorPositionInContentEditable(selectionRange.start);
+
+            const deletedDebug = deleted.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
+            const remainingDebug = characterInstances
+                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+                .join(' ');
+
+            addDebugLog('🗑️ 範囲削除 (editable)', {
+                range: `${selectionRange.start}～${selectionRange.end}`,
+                deleteCount: deleteCount,
+                deleted: deletedDebug,
+                remaining: remainingDebug
+            });
+
+            return;
+        }
+
+        // 単一文字削除（範囲選択なし）
         const cursorPos = getCursorPositionInContentEditable();
 
         let deletePos = -1;
@@ -549,7 +612,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.31';
+    const version = 'v3.0.32';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
