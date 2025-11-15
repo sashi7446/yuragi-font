@@ -150,8 +150,33 @@ function detectDeletion(oldText, newText, cursorPos) {
 }
 
 /**
+ * characterInstancesをHTMLにレンダリング
+ */
+function render() {
+    const processedHTML = processText(characterInstances);
+    outputArea.innerHTML = processedHTML;
+
+    const text = characterInstances.map(inst => inst.char).join('');
+    if (text && text.trim() !== '') {
+        outputArea.classList.add('has-content');
+    } else {
+        outputArea.classList.remove('has-content');
+    }
+
+    // デバッグ表示を更新
+    const instancesDebug = characterInstances
+        .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+        .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+        .join(' ');
+
+    console.log(`🎨 レンダリング完了: ${characterInstances.length}個のインスタンス`);
+    console.log(`   ${instancesDebug}`);
+}
+
+/**
  * 出力エリアを更新（シンプル版）
  * @param {string} text - 表示するテキスト
+ * @deprecated イベント駆動アーキテクチャ移行中 - render()を使用
  */
 function updateOutput(text) {
     console.log('🔄 updateOutput が呼ばれました');
@@ -356,6 +381,68 @@ function debugShowVariations() {
 let isComposing = false;
 
 /**
+ * beforeinput - 入力前に処理（削除・挿入を直接制御）
+ */
+textInput.addEventListener('beforeinput', (event) => {
+    const inputType = event.inputType;
+    console.log(`⚡ [beforeinput] ${inputType}`);
+
+    // 削除系の操作
+    if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
+        event.preventDefault(); // デフォルト動作を止める
+
+        const cursorPos = textInput.selectionStart;
+        const selectionEnd = textInput.selectionEnd;
+
+        // 範囲選択されている場合
+        if (cursorPos !== selectionEnd) {
+            console.log(`🗑️ 範囲削除: 位置${cursorPos}～${selectionEnd}`);
+            // 範囲内のインスタンスを削除
+            const deleteCount = selectionEnd - cursorPos;
+            const deleted = characterInstances.splice(cursorPos, deleteCount);
+            console.log(`🗑️ ${deleteCount}個削除`);
+
+            // textareaの値を同期
+            const newText = characterInstances.map(inst => inst.char).join('');
+            textInput.value = newText;
+            textInput.setSelectionRange(cursorPos, cursorPos);
+
+            render();
+            return;
+        }
+
+        // 単一文字削除
+        let deletePos = -1;
+        if (inputType === 'deleteContentBackward' && cursorPos > 0) {
+            deletePos = cursorPos - 1; // Backspace
+        } else if (inputType === 'deleteContentForward' && cursorPos < characterInstances.length) {
+            deletePos = cursorPos; // Delete
+        }
+
+        if (deletePos >= 0 && deletePos < characterInstances.length) {
+            const deleted = characterInstances[deletePos];
+            characterInstances.splice(deletePos, 1);
+            console.log(`🗑️ 削除: ID=${deleted.id} "${deleted.char}" var=${deleted.variation} at pos=${deletePos}`);
+
+            // textareaの値を同期
+            const newText = characterInstances.map(inst => inst.char).join('');
+            textInput.value = newText;
+            textInput.setSelectionRange(deletePos, deletePos);
+
+            render();
+
+            addDebugLog('🗑️ 文字削除', {
+                position: deletePos,
+                chars: deleted.char,
+                instances: `ID:${deleted.id} "${deleted.char}" var:${deleted.variation}`
+            });
+        }
+
+        return;
+    }
+});
+
+/**
  * IME変換開始イベント
  */
 textInput.addEventListener('compositionstart', () => {
@@ -369,83 +456,85 @@ textInput.addEventListener('compositionstart', () => {
  */
 textInput.addEventListener('compositionend', (event) => {
     isComposing = false;
-    console.log('✅ [compositionend] IME変換確定:', event.data);
+    const insertedText = event.data;
+    console.log('✅ [compositionend] IME変換確定:', insertedText);
 
-    const text = textInput.value;
-    const oldInstanceCount = characterInstances.length;
+    if (!insertedText) {
+        console.log('⚠️ 挿入テキストなし');
+        return;
+    }
 
-    updateOutput(text);
-    debugShowVariations();
+    // カーソル位置を取得
+    const cursorPos = textInput.selectionStart;
+    const insertPos = cursorPos - insertedText.length; // 挿入開始位置
 
-    const newInstanceCount = characterInstances.length;
-    const variations = characterInstances.map(inst => inst.variation).filter(v => v !== 0);
+    console.log(`📝 挿入位置: ${insertPos}, 挿入テキスト: "${insertedText}"`);
 
-    addDebugLog('✅ IME変換確定 → 更新完了', {
-        text: text,
-        variations: variations
+    // 挿入された文字ごとにインスタンスを作成
+    const insertedChars = Array.from(insertedText);
+    const newInstances = insertedChars.map(char => createInstance(char));
+
+    // characterInstancesに挿入
+    characterInstances.splice(insertPos, 0, ...newInstances);
+
+    console.log(`✨ ${newInstances.length}個のインスタンスを作成して挿入:`);
+    newInstances.forEach(inst => {
+        console.log(`   ID=${inst.id} "${inst.char}" var=${inst.variation}`);
+    });
+
+    // textareaの値を同期（念のため）
+    const newText = characterInstances.map(inst => inst.char).join('');
+    textInput.value = newText;
+    textInput.setSelectionRange(cursorPos, cursorPos);
+
+    render();
+
+    const instancesDebug = newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
+    addDebugLog('✅ IME変換確定', {
+        text: insertedText,
+        instances: instancesDebug,
+        created: newInstances.length
     });
 });
 
 /**
  * キーボードイベント処理
- * Enterキーで入力を確定（Shift+Enterは改行）
+ * Enterキーで改行挿入
  */
 textInput.addEventListener('keydown', (event) => {
     console.log('⌨️ [keydown] キー:', event.key, 'isComposing:', isComposing);
 
-    if (event.key === 'Enter') {
-        addDebugLog('⌨️ Enter入力', {
-            key: event.key,
-            isComposing: isComposing
-        });
-    }
-
     if (event.key === 'Enter' && !event.shiftKey && !isComposing) {
-        // Shift+Enterでない、かつIME変換中でない場合のみ処理
+        // Shift+Enterでない、かつIME変換中でない場合
         event.preventDefault();
-        console.log('🔄 [keydown Enter] テキスト更新を実行');
+        console.log('↵ [Enter] 改行を挿入');
 
-        const text = textInput.value;
-        updateOutput(text);
-        debugShowVariations();
+        // カーソル位置に改行インスタンスを挿入
+        const cursorPos = textInput.selectionStart;
+        const newlineInstance = createInstance('\n', 0);
+        characterInstances.splice(cursorPos, 0, newlineInstance);
+
+        // textareaの値を同期
+        const newText = characterInstances.map(inst => inst.char).join('');
+        textInput.value = newText;
+        textInput.setSelectionRange(cursorPos + 1, cursorPos + 1);
+
+        render();
+
+        addDebugLog('↵ 改行挿入', {
+            position: cursorPos
+        });
     }
 });
 
 /**
- * 入力変更イベント
- * 文字削除やペースト時にも対応
+ * input イベント - ペースト対応など
+ * TODO: ペースト処理を実装
  */
-textInput.addEventListener('input', (event) => {
-    // IME変換中は処理しない（compositionendで処理される）
-    if (isComposing) {
-        console.log('⏭️ [input] IME変換中のためスキップ');
-        return;
-    }
-
-    console.log('📝 [input] テキスト変更検知（削除・ペーストなど）');
-
-    const oldLength = characterInstances.length;
-    const text = event.target.value;
-    const newLength = Array.from(text).length;
-
-    updateOutput(text);
-
-    const variations = characterInstances.map(inst => inst.variation).filter(v => v !== 0);
-
-    if (newLength < oldLength) {
-        addDebugLog('🗑️ 文字削除 → 更新完了', {
-            text: text,
-            variations: variations,
-            deleted: oldLength - newLength
-        });
-    } else if (newLength > oldLength) {
-        addDebugLog('📝 文字追加 → 更新完了', {
-            text: text,
-            variations: variations,
-            added: newLength - oldLength
-        });
-    }
-});
+// textInput.addEventListener('input', (event) => {
+//     // 現在はbeforeinput/compositionendで処理
+//     console.log('⚠️ [input] イベント検出 - 想定外');
+// });
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
