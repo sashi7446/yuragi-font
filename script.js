@@ -294,6 +294,20 @@ function updateOutput(text) {
     // 状態を更新
     characterInstances = newInstances;
 
+    // デバッグログに現在のcharacterInstancesを追加
+    const instancesDebug = characterInstances
+        .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+        .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+        .join(' ');
+
+    addDebugLog('✅ 更新完了', {
+        text: text,
+        instances: instancesDebug,
+        reused: reuseCount,
+        created: newCount,
+        deleted: deletedCount
+    });
+
     // HTMLを生成して表示
     const processedHTML = processText(characterInstances);
     outputArea.innerHTML = processedHTML;
@@ -362,7 +376,18 @@ function updateDebugDisplay() {
             dataHTML += `<div class="debug-data">削除文字: "${log.data.chars}"</div>`;
         }
         if (log.data.instances !== undefined) {
-            dataHTML += `<div class="debug-data">削除インスタンス: ${log.data.instances}</div>`;
+            // instancesフィールドは2つの意味で使われる：削除インスタンス or 現在のインスタンス一覧
+            if (log.eventName.includes('削除')) {
+                dataHTML += `<div class="debug-data">削除インスタンス: ${log.data.instances}</div>`;
+            } else {
+                dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">インスタンス: ${log.data.instances}</div>`;
+            }
+        }
+        if (log.data.reused !== undefined) {
+            dataHTML += `<div class="debug-data">再利用: ${log.data.reused}個</div>`;
+        }
+        if (log.data.created !== undefined) {
+            dataHTML += `<div class="debug-data">新規作成: ${log.data.created}個</div>`;
         }
         if (log.data.key) {
             dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
