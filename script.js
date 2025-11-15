@@ -87,65 +87,6 @@ function processText(instances) {
 }
 
 /**
- * カーソル位置から削除された文字を検出
- * @param {string} oldText - 前のテキスト
- * @param {string} newText - 新しいテキスト
- * @param {number} cursorPos - カーソル位置
- * @returns {object|null} 削除情報 { position, char, instance } または null
- */
-function detectDeletion(oldText, newText, cursorPos) {
-    // 削除でない場合
-    if (oldText.length <= newText.length) {
-        return null;
-    }
-
-    const deletedCount = oldText.length - newText.length;
-
-    // 削除位置を特定（カーソル位置から推測）
-    let deletePos = cursorPos;
-
-    // 前方一致する部分を見つける
-    let matchStart = 0;
-    while (matchStart < cursorPos && matchStart < newText.length &&
-           oldText[matchStart] === newText[matchStart]) {
-        matchStart++;
-    }
-
-    deletePos = matchStart;
-
-    // 削除された文字列を取得
-    const deletedChars = oldText.substring(deletePos, deletePos + deletedCount);
-
-    // characterInstancesから該当する文字を探す
-    const oldCharsFiltered = characterInstances.filter(inst => inst.char !== '\n' && inst.char !== ' ');
-    const oldTextFiltered = oldCharsFiltered.map(inst => inst.char).join('');
-
-    // oldTextFiltered内での位置を計算
-    let posInFiltered = 0;
-    let posInOriginal = 0;
-    while (posInOriginal < deletePos && posInFiltered < oldTextFiltered.length) {
-        if (oldText[posInOriginal] !== '\n' && oldText[posInOriginal] !== ' ') {
-            posInFiltered++;
-        }
-        posInOriginal++;
-    }
-
-    const deletedInstances = [];
-    for (let i = 0; i < deletedCount; i++) {
-        const char = deletedChars[i];
-        if (char !== '\n' && char !== ' ' && posInFiltered + i < oldCharsFiltered.length) {
-            deletedInstances.push(oldCharsFiltered[posInFiltered + i]);
-        }
-    }
-
-    return {
-        position: deletePos,
-        chars: deletedChars,
-        instances: deletedInstances
-    };
-}
-
-/**
  * characterInstancesをHTMLにレンダリング
  */
 function render() {
@@ -177,28 +118,8 @@ function render() {
 function updateOutput(text) {
     console.log('🔄 updateOutput が呼ばれました');
 
-    // 1. カーソル位置から削除を検出
-    const cursorPos = textInput.selectionStart;
-    const deletion = detectDeletion(previousText, text, cursorPos);
-
-    if (deletion && deletion.instances.length > 0) {
-        console.log('🗑️ 削除を検出:');
-        deletion.instances.forEach(inst => {
-            console.log(`  削除: ID=${inst.id}, char="${inst.char}", variation=${inst.variation}`);
-        });
-
-        addDebugLog('🗑️ 削除検出', {
-            position: deletion.position,
-            chars: deletion.chars,
-            instances: deletion.instances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ')
-        });
-    }
-
-    // 2. 削除されたIDをセットに格納
+    // Note: detectDeletion() removed - this function is deprecated anyway
     const deletedIds = new Set();
-    if (deletion && deletion.instances.length > 0) {
-        deletion.instances.forEach(inst => deletedIds.add(inst.id));
-    }
 
     // 3. 削除されたインスタンスを除外してavailable poolを作成
     let availableInstances = characterInstances.filter(inst => !deletedIds.has(inst.id));
