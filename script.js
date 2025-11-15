@@ -315,25 +315,26 @@ function updateDebugDisplay() {
         if (log.data.kept !== undefined) {
             dataHTML += `<div class="debug-data">保持: ${log.data.kept}文字, 新規: ${log.data.newChars}文字</div>`;
         }
-        if (log.data.deleted !== undefined) {
-            dataHTML += `<div class="debug-data">削除: ${log.data.deleted}文字</div>`;
-        }
-        if (log.data.added !== undefined) {
-            dataHTML += `<div class="debug-data">追加: ${log.data.added}文字</div>`;
-        }
         if (log.data.position !== undefined) {
-            dataHTML += `<div class="debug-data">削除位置: ${log.data.position}</div>`;
+            dataHTML += `<div class="debug-data">位置: ${log.data.position}</div>`;
+        }
+        if (log.data.deleted !== undefined) {
+            // deletedは削除されたインスタンス情報（文字列）
+            dataHTML += `<div class="debug-data" style="font-size: 0.85em;">削除: ${log.data.deleted}</div>`;
+        }
+        if (log.data.deletedCount !== undefined) {
+            dataHTML += `<div class="debug-data">削除数: ${log.data.deletedCount}個</div>`;
+        }
+        if (log.data.remaining !== undefined) {
+            // remainingは削除後に残ったインスタンス一覧
+            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">残存: ${log.data.remaining}</div>`;
         }
         if (log.data.chars !== undefined) {
             dataHTML += `<div class="debug-data">削除文字: "${log.data.chars}"</div>`;
         }
         if (log.data.instances !== undefined) {
-            // instancesフィールドは2つの意味で使われる：削除インスタンス or 現在のインスタンス一覧
-            if (log.eventName.includes('削除')) {
-                dataHTML += `<div class="debug-data">削除インスタンス: ${log.data.instances}</div>`;
-            } else {
-                dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">インスタンス: ${log.data.instances}</div>`;
-            }
+            // instancesは挿入/更新時のインスタンス一覧
+            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">インスタンス: ${log.data.instances}</div>`;
         }
         if (log.data.reused !== undefined) {
             dataHTML += `<div class="debug-data">再利用: ${log.data.reused}個</div>`;
@@ -408,6 +409,21 @@ textInput.addEventListener('beforeinput', (event) => {
             textInput.setSelectionRange(cursorPos, cursorPos);
 
             render();
+
+            // デバッグログ
+            const deletedDebug = deleted.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
+            const remainingDebug = characterInstances
+                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+                .join(' ');
+
+            addDebugLog('🗑️ 範囲削除', {
+                position: `${cursorPos}～${selectionEnd}`,
+                deleted: deletedDebug,
+                remaining: remainingDebug,
+                deletedCount: deleteCount
+            });
+
             return;
         }
 
@@ -431,10 +447,16 @@ textInput.addEventListener('beforeinput', (event) => {
 
             render();
 
+            // デバッグログ（削除後の状態を表示）
+            const remainingDebug = characterInstances
+                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+                .join(' ');
+
             addDebugLog('🗑️ 文字削除', {
                 position: deletePos,
-                chars: deleted.char,
-                instances: `ID:${deleted.id} "${deleted.char}" var:${deleted.variation}`
+                deleted: `ID:${deleted.id} "${deleted.char}" var:${deleted.variation}`,
+                remaining: remainingDebug
             });
         }
 
