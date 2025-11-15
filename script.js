@@ -111,83 +111,6 @@ function render() {
 }
 
 /**
- * 出力エリアを更新（シンプル版）
- * @param {string} text - 表示するテキスト
- * @deprecated イベント駆動アーキテクチャ移行中 - render()を使用
- */
-function updateOutput(text) {
-    console.log('🔄 updateOutput が呼ばれました');
-
-    // Note: detectDeletion() removed - this function is deprecated anyway
-    const deletedIds = new Set();
-
-    // 3. 削除されたインスタンスを除外してavailable poolを作成
-    let availableInstances = characterInstances.filter(inst => !deletedIds.has(inst.id));
-    console.log(`💡 利用可能インスタンス: ${availableInstances.length}個`);
-
-    // 4. 新テキストの各文字に対してマッチング
-    const newInstances = [];
-    const newCharacters = Array.from(text);
-    let reuseCount = 0;
-    let newCount = 0;
-
-    for (const char of newCharacters) {
-        // 改行やスペースは常に新規作成（variation 0）
-        if (char === '\n' || char === ' ') {
-            newInstances.push(createInstance(char, 0));
-            continue;
-        }
-
-        // availableから同じ文字を前から検索
-        const matchIndex = availableInstances.findIndex(inst => inst.char === char);
-
-        if (matchIndex !== -1) {
-            // 見つかった → 再利用
-            const reusedInstance = availableInstances.splice(matchIndex, 1)[0];
-            newInstances.push(reusedInstance);
-            console.log(`📌 "${char}" (ID:${reusedInstance.id}) 再利用, var:${reusedInstance.variation}`);
-            reuseCount++;
-        } else {
-            // 見つからない → 新規作成
-            const newInstance = createInstance(char);
-            newInstances.push(newInstance);
-            console.log(`✨ "${char}" (ID:${newInstance.id}) 新規作成, var:${newInstance.variation}`);
-            newCount++;
-        }
-    }
-
-    const deletedCount = deletedIds.size;
-    console.log(`✅ 完了: 再利用 ${reuseCount}個, 新規 ${newCount}個, 削除 ${deletedCount}個`);
-
-    // 5. 状態を更新
-    characterInstances = newInstances;
-
-    // 6. デバッグログ
-    const instancesDebug = characterInstances
-        .filter(inst => inst.char !== '\n' && inst.char !== ' ')
-        .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
-        .join(' ');
-
-    addDebugLog('✅ 更新完了', {
-        text: text,
-        instances: instancesDebug,
-        reused: reuseCount,
-        created: newCount,
-        deleted: deletedCount
-    });
-
-    // 7. HTMLを生成して表示
-    const processedHTML = processText(characterInstances);
-    outputArea.innerHTML = processedHTML;
-
-    if (text && text.trim() !== '') {
-        outputArea.classList.add('has-content');
-    } else {
-        outputArea.classList.remove('has-content');
-    }
-}
-
-/**
  * デバッグ情報を画面に表示
  * @param {string} eventName - イベント名
  * @param {object} data - 表示するデータ
@@ -475,19 +398,16 @@ textInput.addEventListener('keydown', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🎨 手書き風フォントシステム v2.0 - 初期化完了');
+    console.log('🎨 手書き風フォントシステム v3.0 - 初期化完了');
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
-    console.log('✨ 各文字の出現位置ごとに独立してランダム割り当てを行います');
-    console.log('💡 デバッグ情報: Enterキーを押すたびにコンソールに詳細情報が表示されます');
-
-    // デモ用: ページ読み込み時に「ワクワクする」を自動表示（オプション）
-    // updateOutput('ワクワクする');
+    console.log('✨ イベント駆動アーキテクチャで動作します');
+    console.log('💡 各文字インスタンスは不変（Object.freeze）です');
 });
 
 // グローバルスコープに公開（デバッグ用）
 window.yuragiFontSystem = {
     processText,
-    updateOutput,
+    render,
     debugShowVariations,
     getInstances: () => characterInstances,
     getInstanceCount: () => characterInstances.length,
