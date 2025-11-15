@@ -449,10 +449,10 @@ outputArea.addEventListener('compositionend', (event) => {
     // カーソル位置を取得
     const beforeLength = characterInstances.length;
     const cursorPos = getCursorPositionInContentEditable();
-    const insertPos = cursorPos - insertedText.length;
+    const insertPos = cursorPos;  // preventDefault成功後はカーソル位置に挿入
 
     console.log(`📝 挿入前の状態: インスタンス数=${beforeLength}, カーソル位置=${cursorPos}`);
-    console.log(`📝 挿入位置計算: insertPos=${insertPos} (cursorPos=${cursorPos} - textLength=${insertedText.length})`);
+    console.log(`📝 挿入位置: insertPos=${insertPos}`);
     console.log(`📝 挿入テキスト: "${insertedText}"`);
 
     // 挿入された文字ごとにインスタンスを作成
@@ -468,8 +468,9 @@ outputArea.addEventListener('compositionend', (event) => {
     });
 
     render();
-    setCursorPositionInContentEditable(cursorPos);
-    console.log(`📌 setCursorPositionInContentEditable(${cursorPos}) を実行`);
+    const newCursorPos = cursorPos + insertedText.length;
+    setCursorPositionInContentEditable(newCursorPos);
+    console.log(`📌 setCursorPositionInContentEditable(${newCursorPos}) を実行`);
 
     const instancesDebug = newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
     addDebugLog('✅ IME確定 (editable)', {
@@ -478,6 +479,7 @@ outputArea.addEventListener('compositionend', (event) => {
         created: newInstances.length,
         cursorPos: cursorPos,
         insertPos: insertPos,
+        newCursorPos: newCursorPos,
         beforeLength: beforeLength,
         domSnapshot: domSnapshot,
         textContent: textContent
@@ -547,7 +549,7 @@ outputArea.addEventListener('beforeinput', (event) => {
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
-    const version = 'v3.0.30';
+    const version = 'v3.0.31';
     console.log(`🎨 手書き風フォントシステム ${version} - 初期化完了`);
     console.log(`📊 利用可能なフォントバリエーション: ${FONT_VARIATIONS_COUNT}種類`);
     console.log('✨ イベント駆動アーキテクチャで動作します');
