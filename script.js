@@ -1,10 +1,12 @@
 // 手書き風フォントシステム - メインスクリプト
+'use strict';
 
 // 設定
 const FONT_VARIATIONS_COUNT = 6; // 利用可能なフォントバリエーションの数
 
-// 状態管理: 文字インスタンスの配列
-// 各要素は { id: number, char: string, variation: number }
+// 状態管理: 文字インスタンスの配列（MutableList<ImmutableInstance>）
+// 各要素は Object.freeze() された { id: number, char: string, variation: number }
+// インスタンス自体は不変、配列は可変（削除・挿入可能）
 let characterInstances = [];
 let nextId = 1; // 次に割り当てるID
 
@@ -26,6 +28,20 @@ const debugLogs = [];
  */
 function getRandomVariation() {
     return Math.floor(Math.random() * FONT_VARIATIONS_COUNT) + 1;
+}
+
+/**
+ * 不変な文字インスタンスを作成
+ * @param {string} char - 文字
+ * @param {number|null} variation - フォントバリエーション（nullの場合は自動割り当て）
+ * @returns {Object} freeze済みインスタンス
+ */
+function createInstance(char, variation = null) {
+    return Object.freeze({
+        id: nextId++,
+        char: char,
+        variation: variation !== null ? variation : (char === '\n' || char === ' ' ? 0 : getRandomVariation())
+    });
 }
 
 /**
@@ -176,11 +192,7 @@ function updateOutput(text) {
     for (const char of newCharacters) {
         // 改行やスペースは常に新規作成（variation 0）
         if (char === '\n' || char === ' ') {
-            newInstances.push({
-                id: nextId++,
-                char: char,
-                variation: 0
-            });
+            newInstances.push(createInstance(char, 0));
             continue;
         }
 
@@ -195,11 +207,7 @@ function updateOutput(text) {
             reuseCount++;
         } else {
             // 見つからない → 新規作成
-            const newInstance = {
-                id: nextId++,
-                char: char,
-                variation: getRandomVariation()
-            };
+            const newInstance = createInstance(char);
             newInstances.push(newInstance);
             console.log(`✨ "${char}" (ID:${newInstance.id}) 新規作成, var:${newInstance.variation}`);
             newCount++;
@@ -456,5 +464,29 @@ window.yuragiFontSystem = {
     updateOutput,
     debugShowVariations,
     getInstances: () => characterInstances,
-    getInstanceCount: () => characterInstances.length
+    getInstanceCount: () => characterInstances.length,
+    createInstance, // 不変インスタンス作成
+
+    // 不変性テスト
+    testImmutability: () => {
+        console.log('🧪 不変性テスト開始');
+        const instance = createInstance('テ');
+        console.log('✅ インスタンス作成:', instance);
+
+        try {
+            instance.variation = 999;
+            console.log('❌ 失敗: variationが変更できてしまった', instance.variation);
+            return false;
+        } catch (e) {
+            console.log('✅ 成功: variationは変更不可（strict modeでエラー）');
+        }
+
+        if (instance.variation === 999) {
+            console.log('⚠️  警告: variationが変更されている（non-strict mode）');
+            return false;
+        }
+
+        console.log('✅ インスタンスは不変です', instance);
+        return true;
+    }
 };
