@@ -3,8 +3,9 @@
 // 設定
 const FONT_VARIATIONS_COUNT = 6; // 利用可能なフォントバリエーションの数
 
-// 状態管理: 各文字に割り当てられたバリエーションを保存
-const characterVariations = new Map();
+// 状態管理: 確定されたテキストと各位置のバリエーションを保存
+let currentText = '';
+let currentVariations = [];
 
 // DOM要素の取得
 const textInput = document.getElementById('text-input');
@@ -19,28 +20,29 @@ function getRandomVariation() {
 }
 
 /**
- * 文字に対するフォントバリエーションを取得または新規作成
- * @param {string} char - 対象の文字
- * @returns {number} フォントバリエーション番号
+ * テキストに対してランダムにバリエーションを割り当てる
+ * @param {string} text - 処理するテキスト
+ * @returns {number[]} 各文字位置に対応するバリエーション番号の配列
  */
-function getVariationForChar(char) {
-    // 既に割り当てられている場合はそれを返す（固定）
-    if (characterVariations.has(char)) {
-        return characterVariations.get(char);
-    }
-
-    // 新しい文字の場合、ランダムに割り当てて保存
-    const variation = getRandomVariation();
-    characterVariations.set(char, variation);
-    return variation;
+function assignRandomVariations(text) {
+    const characters = Array.from(text);
+    return characters.map(char => {
+        // 改行やスペースにはバリエーションを割り当てない
+        if (char === '\n' || char === ' ') {
+            return 0;
+        }
+        // 各文字位置に完全にランダムでバリエーションを割り当て
+        return getRandomVariation();
+    });
 }
 
 /**
  * テキストを処理して、各文字にフォントバリエーションを適用
  * @param {string} text - 処理するテキスト
+ * @param {number[]} variations - 各文字位置のバリエーション番号
  * @returns {string} HTML文字列
  */
-function processText(text) {
+function processText(text, variations) {
     if (!text || text.trim() === '') {
         return '<p class="placeholder">ここに結果が表示されます</p>';
     }
@@ -49,7 +51,7 @@ function processText(text) {
     const characters = Array.from(text);
 
     // 各文字をspanでラップし、対応するフォントバリエーションクラスを適用
-    const processedChars = characters.map(char => {
+    const processedChars = characters.map((char, index) => {
         // 改行やスペースの処理
         if (char === '\n') {
             return '<br>';
@@ -58,8 +60,8 @@ function processText(text) {
             return ' ';
         }
 
-        // 文字に対するバリエーションを取得
-        const variation = getVariationForChar(char);
+        // この位置のバリエーションを取得
+        const variation = variations[index];
 
         // spanでラップしてクラスを適用
         return `<span class="char-span font-variation-${variation}">${char}</span>`;
@@ -73,7 +75,12 @@ function processText(text) {
  * @param {string} text - 表示するテキスト
  */
 function updateOutput(text) {
-    const processedHTML = processText(text);
+    // 新しいテキストに対してランダムにバリエーションを割り当て
+    currentText = text;
+    currentVariations = assignRandomVariations(text);
+
+    // HTMLを生成して表示
+    const processedHTML = processText(currentText, currentVariations);
     outputArea.innerHTML = processedHTML;
 
     // has-contentクラスを追加してスタイルを変更
@@ -85,12 +92,17 @@ function updateOutput(text) {
 }
 
 /**
- * デバッグ用: 現在の文字バリエーションマップをコンソールに表示
+ * デバッグ用: 現在の文字バリエーション情報をコンソールに表示
  */
 function debugShowVariations() {
-    console.log('=== 文字バリエーションマップ ===');
-    characterVariations.forEach((variation, char) => {
-        console.log(`"${char}" → バリエーション ${variation}`);
+    console.log('=== 文字バリエーション情報 ===');
+    console.log(`テキスト: "${currentText}"`);
+
+    const characters = Array.from(currentText);
+    characters.forEach((char, index) => {
+        if (char !== '\n' && char !== ' ') {
+            console.log(`位置${index}: "${char}" → バリエーション ${currentVariations[index]}`);
+        }
     });
     console.log('============================');
 }
@@ -139,5 +151,6 @@ window.yuragiFontSystem = {
     processText,
     updateOutput,
     debugShowVariations,
-    getCharacterVariations: () => characterVariations
+    getCurrentText: () => currentText,
+    getCurrentVariations: () => currentVariations
 };
