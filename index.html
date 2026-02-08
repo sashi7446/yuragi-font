@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手書き風フォントシステム - 技術検証デモ</title>
+    <link rel="stylesheet" href="style.css?v=19">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>手書き風フォントシステム</h1>
+            <p class="subtitle">技術検証デモ - 同じ文字が異なる見た目で表示されます</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <label for="text-input">テキストを入力してEnterキーを押してください:</label>
+                <textarea
+                    id="text-input"
+                    placeholder="例: ワクワクする"
+                    rows="3"
+                ></textarea>
+                <p class="hint">※ 入力確定後、各文字にランダムでフォントが割り当てられます</p>
+            </section>
+
+            <section class="output-section">
+                <h2>表示結果:</h2>
+                <div id="output" class="output-area">
+                    <p class="placeholder">ここに結果が表示されます</p>
+                </div>
+            </section>
+
+            <section class="debug-section">
+                <h3>デバッグ情報</h3>
+                <div id="debug-display" class="debug-display">
+                    <p class="debug-placeholder">イベント情報がここに表示されます</p>
+                </div>
+            </section>
+
+            <section class="demo-section">
+                <h3>デモ例: 「ワクワクする」</h3>
+                <p class="note">同じ「ク」や「ワ」でも異なるフォントで表示されます</p>
+            </section>
+        </main>
+
+        <footer>
+            <p>yuragi = trembling/variance</p>
+        </footer>
+    </div>
+
+    <script src="script.js?v=22"></script>
+</body>
+</html>
