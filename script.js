@@ -41,20 +41,12 @@ function createInstance(char, variation = null) {
 }
 
 /**
- * テキストに対してランダムにバリエーションを割り当てる
- * @param {string} text - 処理するテキスト
- * @returns {number[]} 各文字位置に対応するバリエーション番号の配列
+ * HTMLの特殊文字をエスケープ
+ * @param {string} str - エスケープする文字列
+ * @returns {string} エスケープ済み文字列
  */
-function assignRandomVariations(text) {
-    const characters = Array.from(text);
-    return characters.map(char => {
-        // 改行やスペースにはバリエーションを割り当てない
-        if (char === '\n' || char === ' ') {
-            return 0;
-        }
-        // 各文字位置に完全にランダムでバリエーションを割り当て
-        return getRandomVariation();
-    });
+function escapeHTML(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /**
@@ -71,16 +63,10 @@ function processText(instances) {
     const processedChars = instances.map(instance => {
         const { char, variation } = instance;
 
-        // 改行やスペースの処理
-        if (char === '\n') {
-            return '<br>';
-        }
-        if (char === ' ') {
-            return ' ';
-        }
+        if (char === '\n') return '<br>';
+        if (char === ' ') return ' ';
 
-        // spanでラップしてクラスを適用
-        return `<span class="char-span font-variation-${variation}">${char}</span>`;
+        return `<span class="char-span font-variation-${variation}">${escapeHTML(char)}</span>`;
     });
 
     return `<div class="output-text">${processedChars.join('')}</div>`;
@@ -110,14 +96,8 @@ function render() {
         outputArea.classList.remove('has-content');
     }
 
-    // デバッグ表示を更新
-    const instancesDebug = characterInstances
-        .filter(inst => inst.char !== '\n' && inst.char !== ' ')
-        .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
-        .join(' ');
-
     console.log(`🎨 レンダリング完了: ${characterInstances.length}個のインスタンス`);
-    console.log(`   ${instancesDebug}`);
+    console.log(`   ${formatInstancesDebug(characterInstances)}`);
 }
 
 /**
@@ -138,6 +118,24 @@ function addDebugLog(eventName, data = {}) {
     updateDebugDisplay();
 }
 
+// デバッグ表示のフィールド定義
+const DEBUG_FIELDS = [
+    { key: 'text',         label: d => `テキスト: "${d.text}"` },
+    { key: 'variations',   label: d => `バリエーション: [${d.variations.filter(v => v !== 0).join(', ')}]` },
+    { key: 'unchanged',    label: d => `変更なし: ${d.unchanged ? 'はい（スキップ）' : 'いいえ'}` },
+    { key: 'kept',         label: d => `保持: ${d.kept}文字, 新規: ${d.newChars}文字` },
+    { key: 'position',     label: d => `位置: ${d.position}` },
+    { key: 'deleted',      label: d => `削除: ${d.deleted}`,       small: true },
+    { key: 'deletedCount', label: d => `削除数: ${d.deletedCount}個` },
+    { key: 'remaining',    label: d => `残存: ${d.remaining}`,     small: true, breakAll: true },
+    { key: 'chars',        label: d => `削除文字: "${d.chars}"` },
+    { key: 'instances',    label: d => `インスタンス: ${d.instances}`, small: true, breakAll: true },
+    { key: 'reused',       label: d => `再利用: ${d.reused}個` },
+    { key: 'created',      label: d => `新規作成: ${d.created}個` },
+    { key: 'key',          label: d => `キー: ${d.key}` },
+    { key: 'isComposing',  label: d => `IME変換中: ${d.isComposing ? 'はい' : 'いいえ'}` },
+];
+
 /**
  * デバッグ表示エリアを更新
  */
@@ -150,52 +148,17 @@ function updateDebugDisplay() {
     }
 
     const logsHTML = debugLogs.map(log => {
-        let dataHTML = '';
-        if (log.data.text !== undefined) {
-            dataHTML += `<div class="debug-data">テキスト: "${log.data.text}"</div>`;
-        }
-        if (log.data.variations) {
-            dataHTML += `<div class="debug-data">バリエーション: [${log.data.variations.filter(v => v !== 0).join(', ')}]</div>`;
-        }
-        if (log.data.unchanged !== undefined) {
-            dataHTML += `<div class="debug-data">変更なし: ${log.data.unchanged ? 'はい（スキップ）' : 'いいえ'}</div>`;
-        }
-        if (log.data.kept !== undefined) {
-            dataHTML += `<div class="debug-data">保持: ${log.data.kept}文字, 新規: ${log.data.newChars}文字</div>`;
-        }
-        if (log.data.position !== undefined) {
-            dataHTML += `<div class="debug-data">位置: ${log.data.position}</div>`;
-        }
-        if (log.data.deleted !== undefined) {
-            // deletedは削除されたインスタンス情報（文字列）
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em;">削除: ${log.data.deleted}</div>`;
-        }
-        if (log.data.deletedCount !== undefined) {
-            dataHTML += `<div class="debug-data">削除数: ${log.data.deletedCount}個</div>`;
-        }
-        if (log.data.remaining !== undefined) {
-            // remainingは削除後に残ったインスタンス一覧
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">残存: ${log.data.remaining}</div>`;
-        }
-        if (log.data.chars !== undefined) {
-            dataHTML += `<div class="debug-data">削除文字: "${log.data.chars}"</div>`;
-        }
-        if (log.data.instances !== undefined) {
-            // instancesは挿入/更新時のインスタンス一覧
-            dataHTML += `<div class="debug-data" style="font-size: 0.85em; word-break: break-all;">インスタンス: ${log.data.instances}</div>`;
-        }
-        if (log.data.reused !== undefined) {
-            dataHTML += `<div class="debug-data">再利用: ${log.data.reused}個</div>`;
-        }
-        if (log.data.created !== undefined) {
-            dataHTML += `<div class="debug-data">新規作成: ${log.data.created}個</div>`;
-        }
-        if (log.data.key) {
-            dataHTML += `<div class="debug-data">キー: ${log.data.key}</div>`;
-        }
-        if (log.data.isComposing !== undefined) {
-            dataHTML += `<div class="debug-data">IME変換中: ${log.data.isComposing ? 'はい' : 'いいえ'}</div>`;
-        }
+        const dataHTML = DEBUG_FIELDS
+            .filter(f => log.data[f.key] !== undefined && log.data[f.key] !== null)
+            .map(f => {
+                const style = [
+                    f.small ? 'font-size: 0.85em' : '',
+                    f.breakAll ? 'word-break: break-all' : '',
+                ].filter(Boolean).join('; ');
+                const attr = style ? ` style="${style}"` : '';
+                return `<div class="debug-data"${attr}>${f.label(log.data)}</div>`;
+            })
+            .join('');
 
         return `
             <div class="debug-event">
@@ -224,6 +187,18 @@ function debugShowVariations() {
     console.log('============================');
 }
 
+/**
+ * インスタンスのデバッグ用文字列を生成
+ * @param {Array} instances - 対象インスタンス配列
+ * @returns {string} デバッグ文字列
+ */
+function formatInstancesDebug(instances) {
+    return instances
+        .filter(inst => inst.char !== '\n' && inst.char !== ' ')
+        .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
+        .join(' ');
+}
+
 // イベントリスナーの設定
 
 // IME変換中フラグ
@@ -235,6 +210,35 @@ let isComposing = false;
 textInput.addEventListener('beforeinput', (event) => {
     const inputType = event.inputType;
     console.log(`⚡ [beforeinput] ${inputType}`);
+
+    // 直接入力（半角英数）やペースト
+    if ((inputType === 'insertText' || inputType === 'insertFromPaste') && !isComposing) {
+        event.preventDefault();
+
+        const inserted = event.data || '';
+        if (!inserted) return;
+
+        const cursorPos = textInput.selectionStart;
+        const selectionEnd = textInput.selectionEnd;
+
+        // 選択範囲があれば先に削除
+        if (cursorPos !== selectionEnd) {
+            characterInstances.splice(cursorPos, selectionEnd - cursorPos);
+        }
+
+        const newInstances = Array.from(inserted).map(char => createInstance(char));
+        characterInstances.splice(cursorPos, 0, ...newInstances);
+
+        syncTextarea(cursorPos + newInstances.length);
+        render();
+
+        addDebugLog(`📋 ${inputType === 'insertFromPaste' ? 'ペースト' : '直接入力'}`, {
+            text: inserted,
+            instances: newInstances.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', '),
+            created: newInstances.length
+        });
+        return;
+    }
 
     // 削除系の操作
     if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
@@ -254,17 +258,10 @@ textInput.addEventListener('beforeinput', (event) => {
             syncTextarea(cursorPos);
             render();
 
-            // デバッグログ
-            const deletedDebug = deleted.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', ');
-            const remainingDebug = characterInstances
-                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
-                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
-                .join(' ');
-
             addDebugLog('🗑️ 範囲削除', {
                 position: `${cursorPos}～${selectionEnd}`,
-                deleted: deletedDebug,
-                remaining: remainingDebug,
+                deleted: deleted.map(inst => `ID:${inst.id} "${inst.char}" var:${inst.variation}`).join(', '),
+                remaining: formatInstancesDebug(characterInstances),
                 deletedCount: deleteCount
             });
 
@@ -287,16 +284,10 @@ textInput.addEventListener('beforeinput', (event) => {
             syncTextarea(deletePos);
             render();
 
-            // デバッグログ（削除後の状態を表示）
-            const remainingDebug = characterInstances
-                .filter(inst => inst.char !== '\n' && inst.char !== ' ')
-                .map(inst => `[ID:${inst.id} "${inst.char}" var:${inst.variation}]`)
-                .join(' ');
-
             addDebugLog('🗑️ 文字削除', {
                 position: deletePos,
                 deleted: `ID:${deleted.id} "${deleted.char}" var:${deleted.variation}`,
-                remaining: remainingDebug
+                remaining: formatInstancesDebug(characterInstances)
             });
         }
 
@@ -380,15 +371,6 @@ textInput.addEventListener('keydown', (event) => {
         });
     }
 });
-
-/**
- * input イベント - ペースト対応など
- * TODO: ペースト処理を実装
- */
-// textInput.addEventListener('input', (event) => {
-//     // 現在はbeforeinput/compositionendで処理
-//     console.log('⚠️ [input] イベント検出 - 想定外');
-// });
 
 // 初期化処理
 document.addEventListener('DOMContentLoaded', () => {
